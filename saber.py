@@ -1,5 +1,7 @@
 import socket
 
+port = 53
+ip = '127.0.0.1'
 
 def parse_dns_query(data):
     """
@@ -29,12 +31,15 @@ def generate_dns_response(data, domain_name, ip):
     """
     packet = b''  # Start with an empty byte string
     if domain_name:
-        packet += data[:2] + b"\x81\x80"  # Response flags (standard response)
-        packet += data[4:6] + data[4:6] + b'\x00\x00\x00\x00'  # Questions and Answers Counts
-        packet += data[12:]  # Append the original Domain Name Question
+        packet += data[:2] + b"\x81\x80"  # Standard query response, no error
+        packet += data[4:6]  # Question Count
+        packet += b'\x00\x01'  # Answer Count
+        packet += b'\x00\x00'  # Authority Records Count
+        packet += b'\x00\x00'  # Additional Records Count
+        packet += data[12:]  # Original Domain Name Question
         packet += b'\xc0\x0c'  # Pointer to the domain name (compression)
-        packet += b'\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04'  # Response type, ttl, and resource data length (4 bytes)
-        packet += bytes(map(lambda x: int(x), ip.split('.')))  # 4 bytes of the IP address (convert string IP to bytes)
+        packet += b'\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04'  # Type A, class IN, TTL 60 seconds, data length 4 bytes
+        packet += bytes(map(int, ip.split('.')))  # 4 bytes of the IP address
     return packet
 
 
@@ -59,12 +64,17 @@ def run_dns_server():
 
     # Create a UDP socket
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.bind(('127.0.0.1', 53))  # Bind the socket to port 53 (DNS)
+    udp_socket.bind((ip, port))  # Bind the socket to port 53 (DNS)
 
     try:
         while True:  # Infinite loop to handle requests
             data, client_address = udp_socket.recvfrom(1024)  # Receive the incoming DNS query
             domain_name, query_type = parse_dns_query(data)  # Parse the DNS query
+
+            if query_type != 0:
+                print(f"Unsupported query type: {query_type}")
+                continue
+
             resolved_ip = resolve_domain(db, domain_name)  # Try to resolve the domain name using the database
             if resolved_ip:
                 print(f"Resolved {domain_name} to {resolved_ip}")
