@@ -1,5 +1,4 @@
 import socket
-
 port = 53
 ip = '127.0.0.1'
 
