@@ -1,4 +1,8 @@
 import socket
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Define the DNS database
 dns_database = {
@@ -13,7 +17,6 @@ dns_database = {
             {"value": "mail.example.com", "ttl": 3600, "priority": 10}  # Added priority
         ]
     },
-
     "anotherdomain.com": {
         "A": [
             {"value": "192.168.1.1", "ttl": 3600}
@@ -25,7 +28,6 @@ dns_database = {
             {"value": "mail.anotherdomain.com", "ttl": 3600, "priority": 20}  # Added priority
         ]
     },
-
     "google.com": {
         "A": [
             {"value": "142.250.190.78", "ttl": 300}
@@ -38,7 +40,6 @@ dns_database = {
             {"value": "alt2.google.com", "ttl": 300, "priority": 20}  # Added another MX with different priority
         ]
     },
-
     "wikipedia.org": {
         "A": [
             {"value": "208.80.154.224", "ttl": 300}
@@ -95,8 +96,7 @@ def get_question_domain(data):
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
 
     while data[idx] != 0:  # Domain name ends with a null byte (0)
-        length = data[
-            idx]  # The first byte at the current idx indicates the length of the next segment (label) of the domain name.
+        length = data[idx]  # The first byte at the current idx indicates the length of the next segment (label) of the domain name.
 
         start = idx + 1
         end = idx + 1 + length
@@ -241,20 +241,35 @@ def build_response(data):
     return dns_header + question_section + answer_section
 
 
+# Validate and sanitize incoming DNS queries
+def validate_query(data):
+    # Ensure the query is not too short
+    if len(data) < 12:
+        logging.warning("Query too short, possible attack detected.")
+        return False
+    # Additional validation checks can be added here
+    return True
+
+
 # Main loop to receive and respond to DNS queries
 try:
     while True:
         # Receive the DNS query (max 512 bytes)
         data, addr = sock.recvfrom(512)
-        print(f"Received query from {addr}")
+        logging.info(f"Received query from {addr}")
+
+        # Validate the query
+        if not validate_query(data):
+            logging.warning(f"Invalid query received from {addr}")
+            continue
 
         # Build the response based on the query
         response = build_response(data)
 
         # Send the response back to the client
         sock.sendto(response, addr)
-        print(f"Sent response to {addr}")
+        logging.info(f"Sent response to {addr}")
 
 except KeyboardInterrupt:
-    print('Shutting down DNS server...')
+    logging.info('Shutting down DNS server...')
     sock.close()
