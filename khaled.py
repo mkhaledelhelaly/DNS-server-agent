@@ -7,12 +7,35 @@ dns_database = {
             {"value": "127.0.0.1", "ttl": 3600}
         ]
     },
+
     "anotherdomain.com": {
         "A": [
             {"value": "192.168.1.1", "ttl": 3600}
         ]
+    },
+
+    "google.com": {
+    "A": [
+        {"value": "142.250.190.78", "ttl": 300}
+    ],
+    "AAAA": [
+        {"value": "2607:f8b0:4009:801::200e", "ttl": 300}
+    ],
+    "CNAME": [
+        {"value": "www.google.com", "ttl": 300}
+    ]
+    },
+
+    "wikipedia.org": {
+        "A": [
+            {"value": "208.80.154.224", "ttl": 300}
+        ],
+        "AAAA": [
+            {"value": "2620:0:862:ed1a::1", "ttl": 300}
+        ]
     }
 }
+
 
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -20,21 +43,57 @@ sock.bind(('127.0.0.1', 53))  # Bind to DNS port
 
 # Function to extract flags
 def get_flags():
-    # QR=1 (response), opcode=0000 (standard query), AA=1 (authoritative answer), RD=0 (recursion desired)
-    flags = int('1000010000000000', 2).to_bytes(2, byteorder='big')  # 0x8180
+    QR = '1'
+    opcode = '0000'
+    AA = '1'
+    TC = '0'
+    RD = '0'
+    RA = '0'
+    Z = '000'
+    Rcode = '0000'
+
+    # Concatenate all the parts into a single binary string
+    flags= QR + opcode + AA + TC + RD + RA + Z + Rcode
+
+    # Convert the binary string to an integer, then to bytes
+    flags = int(flags, 2).to_bytes(2, byteorder='big')  # 0x8400
     return flags
 
 # Function to parse the domain name from the DNS query
 def get_question_domain(data):
     domain_parts = []
-    idx = 12  # Starting after the transaction ID, flags, and question count
+    query_type_map = {
+        1: 'A',
+        28: 'AAAA',
+        5: 'CNAME',
+        15: 'MX',
+        2: 'NS',
+        12: 'PTR',
+        6: 'SOA',
+        16: 'TXT',
+        33: 'SRV',
+        255: 'ANY'
+    }
 
-    while data[idx] != 0:
-        length = data[idx]
-        domain_parts.append(data[idx + 1: idx + 1 + length].decode())
+    idx = 12  #index starts at 12 because the first 12 bytes are reserved for the header
+
+    while data[idx] != 0:              #Domain name ends with a null byte (0)
+        length = data[idx]             #The first byte at the current idx indicates the length of the next segment (label) of the domain name.
+        
+        start = idx + 1
+        end = idx + 1 + length
+        label_bytes = data[start:end]
+        label = label_bytes.decode() #coverts from bytes to string
+        domain_parts.append(label)
+        
         idx += length + 1
 
-    return ".".join(domain_parts), data[idx + 1: idx + 3]
+    domain_name = ".".join(domain_parts) #joins labels using a dot
+    query_type_value = int.from_bytes(data[idx + 1: idx + 3], byteorder='big') #2 bytes after domain name represent query type (A, CName, MX, ....)
+    
+    query_type = query_type_map.get(query_type_value, 'UNKNOWN')
+
+    return domain_name, query_type
 
 # Function to retrieve DNS record from the database
 def get_records(domain_name, record_type):
@@ -60,36 +119,37 @@ def build_records(domain_name, record_type, records):
 
 # Function to build the DNS response
 def build_response(data):
-    # Transaction ID (from the original query)
+    #Transaction ID (from the original query)
     transaction_id = data[:2]
 
-    # Flags (standard query response)
+    #Flags (standard query response)
     flags = get_flags()
+    print(f"Flags: {flags}\n")
 
-    # Question Count (1 question)
+    #Question Count (1 question)
     qdcount = b'\x00\x01'
 
-    # Extract domain name and query type from the question section
+    #Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
 
-    # Retrieve the records from the database (default to "A" type)
-    records = get_records(domain_name, "A")  # Currently only handling "A" type records
+    #Retrieve the records from the database
+    records = get_records(domain_name, query_type)
 
-    # Answer Count (how many answers are being returned)
-    ancount = len(records).to_bytes(2, byteorder='big')
+    #Answer Count (how many answers are being returned)
+    anscount = len(records).to_bytes(2, byteorder='big')
 
-    # No additional authority or additional records
-    nscount = b'\x00\x00'
-    arcount = b'\x00\x00'
+    #No additional authority or additional records
+    authcount = b'\x00\x00'
+    addcount = b'\x00\x00'
 
     # DNS header (Transaction ID, Flags, Question Count, Answer Count, Authority Count, Additional Count)
-    dns_header = transaction_id + flags + qdcount + ancount + nscount + arcount
+    dns_header = transaction_id + flags + qdcount + anscount + authcount + addcount
 
     # DNS question section (domain name and query type)
-    question_section = data[12:]  # We keep the original question part intact
+    question_section = data[12:]  #The Question Section in a response is an echo of the question from the request.
 
     # DNS body (resource records)
-    answer_section = build_records(domain_name, "A", records)
+    answer_section = build_records(domain_name, query_type, records)
 
     return dns_header + question_section + answer_section
 
