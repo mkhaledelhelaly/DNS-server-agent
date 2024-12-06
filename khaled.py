@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,7 +60,7 @@ sock.bind(('127.0.0.1', 53))
 
 
 # Function to extract flags
-def get_flags():
+def get_flags(domainname, query_type):
     QR = '1'
     opcode = '0000'
     AA = '1'
@@ -67,7 +68,8 @@ def get_flags():
     RD = '0'
     RA = '0'
     Z = '000'
-    Rcode = '0000'
+    Rcode = f"{get_rcode(domainname, query_type):04b}"
+    print(f"Rcode (binary) = {Rcode}")
 
     # Concatenate all the parts into a single binary string
     flags = QR + opcode + AA + TC + RD + RA + Z + Rcode
@@ -107,12 +109,22 @@ def get_question_domain(data):
         idx += length + 1
 
     domain_name = ".".join(domain_parts)  # joins labels using a dot
-    query_type_value = int.from_bytes(data[idx + 1: idx + 3],
-                                      byteorder='big')  # 2 bytes after domain name represent query type (A, CName, MX, ....)
+    query_type_value = int.from_bytes(data[idx + 1: idx + 3],byteorder='big')  # 2 bytes after domain name represent query type (A, CName, MX, ....)
 
     query_type = query_type_map.get(query_type_value, 'UNKNOWN')
 
     return domain_name, query_type
+
+
+def get_rcode(domain_name, query_type):
+    if not domain_name:  # Malformed query
+        return 1  # FORMERR
+    if domain_name not in dns_database:  # Non-existent domain
+        return 3  # NXDOMAIN
+    if query_type not in ['A', 'CNAME', 'MX', 'NS']:  # Unsupported query type
+        return 4  # NOTIMP
+    
+    return 0  # NOERROR
 
 
 # Function to retrieve DNS record from the database
@@ -133,8 +145,7 @@ def build_records(domain_name, record_type, records):
             response_body += b'\xc0\x0c'  # Pointer to the domain name
             response_body += b'\x00\x01'  # Specifies the record type as A (1)
             response_body += b'\x00\x01'  # Specifies Class IN (Internet)
-            response_body += int(ttl).to_bytes(4,
-                                               byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
+            response_body += int(ttl).to_bytes(4,byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
             response_body += b'\x00\x04'  # Length of the address (4 bytes for type A)
 
             ip_integers = map(int, value.split('.'))  # Split ip address to integers
@@ -206,21 +217,23 @@ def build_records(domain_name, record_type, records):
 
 # Function to build the DNS response
 def build_response(data):
-    # Transaction ID (from the original query)
-    transaction_id = data[:2]
-
-    # Flags (standard query response)
-    flags = get_flags()
-    print(f"Flags: {flags}\n")
-
-    # Question Count (1 question)
-    qdcount = b'\x00\x01'
-
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
 
     # Retrieve the records from the database
     records = get_records(domain_name, query_type)
+
+
+
+    # Transaction ID (from the original query)
+    transaction_id = data[:2]
+
+    # Flags (standard query response)
+    flags = get_flags(domain_name,query_type)
+    print(f"Flags: {flags}\n")
+
+    # Question Count (1 question)
+    qdcount = b'\x00\x01'
 
     # Answer Count (how many answers are being returned)
     anscount = len(records).to_bytes(2, byteorder='big')
@@ -251,25 +264,22 @@ def validate_query(data):
     return True
 
 
-# Main loop to receive and respond to DNS queries
-try:
-    while True:
-        # Receive the DNS query (max 512 bytes)
-        data, addr = sock.recvfrom(512)
-        logging.info(f"Received query from {addr}")
-
-        # Validate the query
-        if not validate_query(data):
-            logging.warning(f"Invalid query received from {addr}")
-            continue
-
-        # Build the response based on the query
+def handle_request(data, addr):
+    logging.info(f"Processing query from {addr}")
+    if validate_query(data):
         response = build_response(data)
-
-        # Send the response back to the client
         sock.sendto(response, addr)
         logging.info(f"Sent response to {addr}")
 
+
+try:
+    while True:
+        data, addr = sock.recvfrom(512)
+        logging.info(f"Received query from {addr}")
+        
+        # Spawn a new thread for each request
+        thread = threading.Thread(target=handle_request, args=(data, addr))
+        thread.start()
 except KeyboardInterrupt:
     logging.info('Shutting down DNS server...')
     sock.close()
