@@ -233,7 +233,7 @@ def build_response(data):
     Rcode = f"{get_rcode(domain_name, query_type, data):04b}"
     # Flags (standard query response)
     flags = get_flags(Rcode)
-    print(f"Flags: {flags}\n")
+    print(f"Flags: {flags}")
 
 
     # Question Count (1 question)
@@ -280,17 +280,37 @@ def validate_query(data):
 
 def handle_request(data, addr):
     logging.info(f"Processing query from {addr}")
+    
+    # Build the DNS response
     response = build_response(data)
     print(f"DNS Response Message = {response}")
-    #if rcode fel respone == 0 then send response, else hay'ba eh??? logging.warning w ne print rcode w ma3nah??
-    sock.sendto(response, addr)
-    logging.info(f"Sent response to {addr}")
+    
+    # Extract the rcode from the response
+    # rcode is the last 4 bits of the 4th byte in the DNS response
+    rcode = response[3] & 0x0F  # Mask to isolate the last 4 bits
+    
+    if rcode == 0:
+        # If rcode is 0, proceed normally
+        sock.sendto(response, addr)
+        logging.info(f"Sent response to {addr}")
+    else:
+        # If rcode is not 0, log the error
+        error_messages = {
+            1: "Format error: The query was malformed.",
+            2: "Server failure: Internal error occurred while processing the query.",
+            3: "Non-existent domain (NXDomain): The domain name does not exist.",
+            4: "Not implemented: The requested operation is not supported.",
+            5: "Refused: The server refused the query due to policy."
+        }
+        error_message = error_messages.get(rcode, f"Unknown error code {rcode}.")
+        logging.warning(f"Error {rcode}: {error_message} - Client: {addr}")
+        print(f"Error {rcode}: {error_message}")
 
 
 try:
     while True:
         data, addr = sock.recvfrom(512)
-        logging.info(f"Received query from {addr}")
+        logging.info(f"\n\nReceived query from {addr}")
         
         # Spawn a new thread for each request
         thread = threading.Thread(target=handle_request, args=(data, addr))
