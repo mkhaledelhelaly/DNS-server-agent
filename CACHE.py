@@ -1,6 +1,7 @@
 import socket
 import logging
 import threading
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -54,9 +55,49 @@ dns_database = {
     }
 }
 
+
+dns_cache = {}
+
+
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(('127.0.0.1', 53))
+
+
+# Retrieve records (with cache support)
+def get_records(domain_name, query_type):
+    """Retrieve DNS records, either from cache or from the database."""
+    cached_records = get_from_cache(domain_name, query_type)
+    if cached_records:
+        print("found in cache")
+        return cached_records
+
+    if domain_name in dns_database and query_type in dns_database[domain_name]:
+        records = dns_database[domain_name][query_type]
+        ttl = records[0]['ttl']  # Assuming all records have the same TTL
+        add_to_cache(domain_name, records, ttl)
+        print("not found in cache")
+        return records
+    return []
+
+
+def add_to_cache(domain_name, records, ttl):
+    """Store DNS records in the cache with an expiration time."""
+    expiration_time = time.time() + ttl  # TTL is in seconds
+    dns_cache[domain_name] = (records, expiration_time)
+
+
+# Function to get records from the cache
+def get_from_cache(domain_name, query_type):
+    """Check the cache for the requested DNS record."""
+    current_time = time.time()
+    if domain_name in dns_cache:
+        cached_records, expiration_time = dns_cache[domain_name]
+        if current_time < expiration_time:
+            return [record for record in cached_records if record['type'] == query_type]
+        else:
+            del dns_cache[domain_name]  # Remove expired entry
+    return None
 
 
 # Function to extract flags
@@ -127,13 +168,6 @@ def get_rcode(domain_name, query_type, data):
     # 2 -> server failure
     # 5 -> policy restricition
     return 0  # NOERROR
-
-
-# Function to retrieve DNS record from the database
-def get_records(domain_name, record_type):
-    if domain_name in dns_database and record_type in dns_database[domain_name]:
-        return dns_database[domain_name][record_type]
-    return []
 
 
 # Function to build the DNS response body (resource records)
