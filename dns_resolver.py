@@ -4,7 +4,7 @@ import socket
 resolver_ip = '127.0.0.1'
 resolver_port = 53
 root_ip = '127.0.0.1'
-root_port = 5353
+root_port = 5354
 tld_ip = '127.0.0.1'
 tld_port = 5354
 auth_ip = '127.0.0.1'
@@ -47,9 +47,9 @@ while True:
     sock.sendto(binary_domain_name, (root_ip, root_port))
     print(f"Resolver sent domain name {binary_domain_name} to root server")
 
-    # Step 3: Receive response from the root server
-    root_response, _ = sock.recvfrom(512)
-    print(f"Resolver received response from root: {root_response}")
+    # # Step 3: Receive response from the root server
+    # root_response, _ = sock.recvfrom(512)
+    # print(f"Resolver received response from root: {root_response}")
 
     # # Step 4: Send response to the TLD server
     # sock.sendto(root_response, (tld_ip, tld_port))
