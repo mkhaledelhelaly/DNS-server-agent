@@ -12,4 +12,5 @@ while True:
 
     # Responding to the resolver
     response = b"Authoritative Response"
+    sock.sendto(response, addr)
     print(f"Authoritative Server sent response")
