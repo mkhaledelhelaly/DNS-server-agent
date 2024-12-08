@@ -14,7 +14,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((resolver_ip, resolver_port))
 
 ################################################################################################################
-# Function to parse the domain name from the DNS query
+
 def get_binary_domain(data):
     """
     Extracts the domain name in its binary format directly from the DNS query data.
@@ -30,30 +30,32 @@ def get_binary_domain(data):
 
     domain_bytes.append(0)  # Add the final null byte to terminate the domain name
     return bytes(domain_bytes)  # Convert to immutable bytes and return
-
 ##################################################################################################################################################
 while True:
     # Step 1: Receive data from the client
     data, addr = sock.recvfrom(512)
-    print(f"Resolver received data from client: {data}")
-    binary_domain_name= get_binary_domain(data)
+    binary_domain_name = get_binary_domain(data)
     if b'\x04arpa\x00' in binary_domain_name:
         #print(f"Rejected domain name: {binary_domain_name}")
         continue
-
-    print(f"Binary domain name = {binary_domain_name}")
-
+    
+    print("\n\n\n")
+    print(f"Binary Domain Name = {binary_domain_name}")
+    print(f"Resolver received data from client: {data}")
+    
+    
     # Step 2: Send data to the root server
-    sock.sendto(binary_domain_name, (root_ip, root_port))
-    print(f"Resolver sent domain name {binary_domain_name} to root server")
+    sock.sendto(data, (root_ip, root_port))
+    print(f"Resolver sent data {data} to root server")
 
-    # # Step 3: Receive response from the root server
-    # root_response, _ = sock.recvfrom(512)
-    # print(f"Resolver received response from root: {root_response}")
+    # Step 3: Receive response from the root server
+    root_response, _ = sock.recvfrom(512)
+    print(f"Resolver received response from root: {root_response}")
+    break
 
-    # # Step 4: Send response to the TLD server
-    # sock.sendto(root_response, (tld_ip, tld_port))
-    # print(f"Resolver sent data to TLD server")
+    # Step 4: Send response to the TLD server
+    sock.sendto(root_response, (tld_ip, tld_port))
+    print(f"Resolver sent data to TLD server")
 
     # # Step 5: Receive response from the TLD server
     # tld_response, _ = sock.recvfrom(512)
