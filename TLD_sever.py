@@ -1,43 +1,29 @@
 import socket
 import logging
 
-root_ip = '127.0.0.1'
-root_port = 5354
+# TLD server details
+tld_ip = '127.0.0.1'
+tld_port = 5356
 
+# Initialize the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((root_ip, root_port))
+sock.bind((tld_ip, tld_port))
 
-# Root server database with NS records for TLDs .com and .org
-root_database = {
-    "com": {"NS": [{"value": b"ns1.tld-com.server", "ttl": 3600}]},
-    "org": {"NS": [{"value": b"ns1.tld-org.server", "ttl": 3600}]}
+# TLD database
+# The database contains NS records for domains under this TLD
+tld_database = {
+    "example.com": {
+        "NS": [
+            {"value": b"ns1.auth-example.com", "ttl": 3600},
+        ]
+    },
+    "example.org": {
+        "NS": [
+            {"value": b"ns1.auth-example.org", "ttl": 3600},
+        ]
+    },
 }
-        
-####################################################################################
-def get_records(tld):
 
-    if tld in root_database:
-        # Retrieve NS records for the given TLD from the root database
-        ns_records = root_database[tld]["NS"]
-        
-        records = []
-        
-        # Iterate over each NS record for the TLD
-        for record in ns_records:
-            # Each record is a dictionary with a 'value' (the nameserver) and 'ttl' (time to live)
-            record_data = {
-                "name": tld.encode(),  # The name field will be the TLD itself
-                "type": 2,  # NS record type is 2
-                "class": 1,  # IN class is 1
-                "ttl": record["ttl"],  # TTL in seconds
-                "rdata": record["value"]  # The RDATA is the nameserver value
-            }
-            records.append(record_data)
-        
-        return records
-    else:
-        # If the TLD is not found, return an empty list
-        return []
 
 ######################################################################################################################
 
@@ -52,9 +38,7 @@ def encode_domain_name(domain):
         encoded += len(label).to_bytes(1, byteorder='big') + label.encode('utf-8')
     encoded += b'\0'  # Null byte to terminate the domain name
     return encoded
-
 ######################################################################################################################
-
 def convert_records_to_binary(records):
     # Initialize an empty bytearray to hold the concatenated binary records
     binary_records = bytearray()
@@ -85,14 +69,32 @@ def convert_records_to_binary(records):
         binary_records.extend(binary_record)
 
     return bytes(binary_records)  # Return the concatenated binary string
+#################################################################################################################################
+# Reuse shared helper functions from the root server
+def get_records(domain):
+    if domain in tld_database:
+        # Retrieve NS records for the given domain
+        ns_records = tld_database[domain]["NS"]
+        
+        records = []
+        
+        for record in ns_records:
+            # Each record is a dictionary with a 'value' (nameserver) and 'ttl' (time to live)
+            record_data = {
+                "name": domain.encode(),  # The domain itself
+                "type": 2,  # NS record type is 2
+                "class": 1,  # IN class is 1
+                "ttl": record["ttl"],  # TTL in seconds
+                "rdata": record["value"],  # RDATA is the nameserver value
+            }
+            records.append(record_data)
+        
+        return records
+    else:
+        # If the domain is not found, return an empty list
+        return []
 
-#####################################################################################################################
-def get_tld(domain_name):
-    parts = domain_name.split('.')
-    
-    # The TLD is the last part of the domain
-    return parts[-1]
-#######################################################################################################################     
+##############################################################################################################################################
 # Function to parse the domain name from the DNS query
 def get_question_domain(data):
     domain_parts = []
@@ -140,6 +142,7 @@ def get_flags(Rcode):
     RA = '0'
     Z = '000'
     
+
     # Concatenate all the parts into a single binary string
     flags = QR + opcode + AA + TC + RD + RA + Z + str(Rcode)
 
@@ -149,22 +152,21 @@ def get_flags(Rcode):
 
 
 ######################################################################################################################
-def get_rcode(tld, query_type, data):
-    if not validate_query_format(data):
+def get_rcode(domain_name, query_type, data):
+    if not validate_query(data):
         return 1  # FORMERR
     if query_type not in ['A', 'CNAME', 'MX', 'NS']:
         return 4  # NOTIMP
-    if not get_records(tld):
+    if not get_records(domain_name):
         return 3  # NXDOMAIN
     return 0  # NOERROR
 
     # 2 -> server failure
     # 5 -> policy restriction
 
-
 #######################################################################################################################
 # Validate and sanitize incoming DNS queries
-def validate_query_format(data):
+def validate_query(data):
     # Ensure the query is not too short
     if len(data) < 12:
         logging.warning("Query too short, possible attack detected.")
@@ -181,7 +183,7 @@ def validate_query_format(data):
         return False
     
     return True
-####################################################################################################################
+#####################################################################################################################
 
 def build_error_response(data, rcode):
     transaction_id = data[:2]  # Echo Transaction ID
@@ -193,30 +195,33 @@ def build_error_response(data, rcode):
     header = transaction_id + flags + qdcount + anscount + authcount + addcount
     question = data[12:]  # Echo the question section
     return header + question
-####################################################################################################################
 
+####################################################################################################################
 
 def build_response(data):
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
-    tld = get_tld(domain_name)
-    print(f"TLD = {tld}")
-    records = get_records(tld)
+    print(f"Domain Name = {domain_name}")
+    records = get_records(domain_name)
     print(f"NS records = {records}")
 
     # Transaction ID (from the original query)
     transaction_id = data[:2]
 
 
-    Rcode = f"{get_rcode(tld, query_type, data):04b}"
+    Rcode = f"{get_rcode(domain_name, query_type, data):04b}"
+    # Flags (standard query response)
     flags = get_flags(Rcode)
-
+    
 
     if Rcode == '0000':
         # Question Count (1 question)
         qdcount = b'\x00\x01'
 
+        # Answer Count (how many answers are being returned)
         anscount = b'\x00\x00'
+
+        # No additional authority or additional records
         authcount = len(records).to_bytes(2, byteorder='big')
         addcount = b'\x00\x00'
 
@@ -228,10 +233,10 @@ def build_response(data):
 
         # DNS body (resource records)
         authority_section = convert_records_to_binary(records)
-
+        
         response = dns_header + question_section + authority_section
+
         return response
-    
     else:
         error_response = build_error_response(data,Rcode)
         return error_response
@@ -239,13 +244,15 @@ def build_response(data):
 
 
 
-
 while True:
     # Step 1: Receive the query from the resolver
     data, addr = sock.recvfrom(512)
-    print(f"Root received data from Resolver: {data}")
+    print(f"TLD received data from Resolver: {data}")
+
+    # Step 2: Build the response
     response = build_response(data)
+
+    # Step 3: Send the response back to the resolver
     sock.sendto(response, addr)
-    print(f"Root sent Response {response} to Resolver")
-    
+    print(f"TLD sent Response {response} to Resolver")
     
