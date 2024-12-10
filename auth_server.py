@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 auth_ip = '127.0.0.1'
 auth_port = 5357
@@ -266,12 +267,21 @@ def build_response(data):
         return error_response
 #########################################################################################################################
 
+def handle_client(data, addr):
+    print(f"Received data: {data} from {addr}")
+
+    # Process the query
+    response = build_response(data)
+
+    # Send the response back to the resolver
+    sock.sendto(response, addr)
+    print(f"Sent response {response} to resolver")
+
+###############################################################################################################################
 while True:
     data, addr = sock.recvfrom(512)
-    print(f"Authoritative Server received data: {data} from Resolver")
-
-    # Responding to the resolver
-    response = build_response(data)
-    sock.sendto(response, addr)
-    print(f"Authoritative Server sent response {response} to resolver")
+    
+    # Create a new thread for each request
+    thread = threading.Thread(target=handle_client, args=(data, addr))
+    thread.start()
     

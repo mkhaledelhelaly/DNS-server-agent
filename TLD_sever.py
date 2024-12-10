@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 # TLD server details
 tld_ip = '127.0.0.1'
@@ -241,18 +242,24 @@ def build_response(data):
         error_response = build_error_response(data,Rcode)
         return error_response
 
+#######################################################################################################
 
-
-
-while True:
-    # Step 1: Receive the query from the resolver
-    data, addr = sock.recvfrom(512)
+def handle_client(data, addr):
     print(f"TLD received data from Resolver: {data}")
 
-    # Step 2: Build the response
+    # Process the query
     response = build_response(data)
 
-    # Step 3: Send the response back to the resolver
+    # Send the response back to the resolver
     sock.sendto(response, addr)
-    print(f"TLD sent Response {response} to Resolver")
+    print(f"Sent response {response} to resolver")
+
+while True:
+    data, addr = sock.recvfrom(512)
+    
+    # Create a new thread for each request
+    thread = threading.Thread(target=handle_client, args=(data, addr))
+    thread.start()
+
+
     

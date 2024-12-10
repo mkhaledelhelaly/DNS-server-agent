@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 root_ip = '127.0.0.1'
 root_port = 5354
@@ -238,14 +239,22 @@ def build_response(data):
 
 
 
+def handle_client(data, addr):
+    print(f"Root received data from Resolver: {data}")
 
+    # Process the query
+    response = build_response(data)
+
+    # Send the response back to the resolver
+    sock.sendto(response, addr)
+    print(f"Sent response {response} to resolver")
 
 while True:
-    # Step 1: Receive the query from the resolver
     data, addr = sock.recvfrom(512)
-    print(f"Root received data from Resolver: {data}")
-    response = build_response(data)
-    sock.sendto(response, addr)
-    print(f"Root sent Response {response} to Resolver")
+    
+    # Create a new thread for each request
+    thread = threading.Thread(target=handle_client, args=(data, addr))
+    thread.start()
+
     
     
