@@ -8,6 +8,9 @@ root_port = 5354
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((root_ip, root_port))
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+
 # Root server database with NS records for TLDs .com and .org
 root_database = {
     "com": {"NS": [{"value": b"ns1.tld-com.server", "ttl": 3600}]},
@@ -201,9 +204,9 @@ def build_response(data):
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
     tld = get_tld(domain_name)
-    print(f"TLD = {tld}")
+    logging.info(f"TLD = {tld}")
     records = get_records(tld)
-    print(f"NS records = {records}")
+    logging.info(f"NS records = {records}")
 
     # Transaction ID (from the original query)
     transaction_id = data[:2]
@@ -240,14 +243,14 @@ def build_response(data):
 
 
 def handle_client(data, addr):
-    print(f"Root received data from Resolver: {data}")
+    logging.info(f"Root received data from Resolver: {data}")
 
     # Process the query
     response = build_response(data)
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
-    print(f"Sent response {response} to resolver")
+    logging.info(f"Sent response {response} to resolver")
 
 while True:
     data, addr = sock.recvfrom(512)

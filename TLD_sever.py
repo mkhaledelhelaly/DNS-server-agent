@@ -11,7 +11,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((tld_ip, tld_port))
 
 # TLD database
-# The database contains NS records for domains under this TLD
 tld_database = {
     "example.com": {
         "NS": [
@@ -25,9 +24,10 @@ tld_database = {
     },
 }
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
 
-######################################################################################################################
-
+##############################################################################################################################################
 def encode_domain_name(domain):
     """
     Encodes a domain name into its binary format as per DNS specifications.
@@ -35,11 +35,11 @@ def encode_domain_name(domain):
     labels = domain.split('.')
     encoded = b""
     for label in labels:
-        # The first byte is the length of the label
         encoded += len(label).to_bytes(1, byteorder='big') + label.encode('utf-8')
     encoded += b'\0'  # Null byte to terminate the domain name
     return encoded
-######################################################################################################################
+
+################################################################################################################################################
 def convert_records_to_binary(records):
     # Initialize an empty bytearray to hold the concatenated binary records
     binary_records = bytearray()
@@ -70,8 +70,8 @@ def convert_records_to_binary(records):
         binary_records.extend(binary_record)
 
     return bytes(binary_records)  # Return the concatenated binary string
-#################################################################################################################################
-# Reuse shared helper functions from the root server
+
+################################################################################################################################################
 def get_records(domain):
     if domain in tld_database:
         # Retrieve NS records for the given domain
@@ -92,11 +92,9 @@ def get_records(domain):
         
         return records
     else:
-        # If the domain is not found, return an empty list
         return []
 
-##############################################################################################################################################
-# Function to parse the domain name from the DNS query
+################################################################################################################################################
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
@@ -114,7 +112,7 @@ def get_question_domain(data):
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
 
-    while data[idx] != 0:  # Domain name ends with a null byte (0)
+    while data[idx] != 0:
         length = data[idx]  # The first byte at the current idx indicates the length of the next segment (label) of the domain name.
 
         start = idx + 1
@@ -125,15 +123,14 @@ def get_question_domain(data):
 
         idx += length + 1
 
-    domain_name = ".".join(domain_parts)  # joins labels using a dot
-    query_type_value = int.from_bytes(data[idx + 1: idx + 3],byteorder='big')  # 2 bytes after domain name represent query type (A, CName, MX, ....)
+    domain_name = ".".join(domain_parts)
+    query_type_value = int.from_bytes(data[idx + 1: idx + 3], byteorder='big')
 
     query_type = query_type_map.get(query_type_value, 'UNKNOWN')
 
     return domain_name, query_type
 
-############################################################################################################
-# Function to extract flags
+################################################################################################################################################
 def get_flags(Rcode):
     QR = '1'
     opcode = '0000'
@@ -142,19 +139,14 @@ def get_flags(Rcode):
     RD = '0'
     RA = '0'
     Z = '000'
-    
 
-    # Concatenate all the parts into a single binary string
     flags = QR + opcode + AA + TC + RD + RA + Z + str(Rcode)
-
-    # Convert the binary string to an integer, then to bytes
     flags = int(flags, 2).to_bytes(2, byteorder='big')
     return flags
 
-
-######################################################################################################################
+################################################################################################################################################
 def get_rcode(domain_name, query_type, data):
-    if not validate_query(data):
+    if not validate_query_format(data):
         return 1  # FORMERR
     if query_type not in ['A', 'CNAME', 'MX', 'NS']:
         return 4  # NOTIMP
@@ -162,18 +154,12 @@ def get_rcode(domain_name, query_type, data):
         return 3  # NXDOMAIN
     return 0  # NOERROR
 
-    # 2 -> server failure
-    # 5 -> policy restriction
-
-#######################################################################################################################
-# Validate and sanitize incoming DNS queries
-def validate_query(data):
-    # Ensure the query is not too short
+################################################################################################################################################
+def validate_query_format(data):
     if len(data) < 12:
         logging.warning("Query too short, possible attack detected.")
         return False
     
-     # Ensure the query is a standard query (QR = 0)
     if data[2] & 0x80 != 0:
         logging.warning("Query is a response, not a request.")
         return False
@@ -184,82 +170,56 @@ def validate_query(data):
         return False
     
     return True
-#####################################################################################################################
 
+################################################################################################################################################
 def build_error_response(data, rcode):
-    transaction_id = data[:2]  # Echo Transaction ID
+    transaction_id = data[:2]
     flags = get_flags(rcode)
-    qdcount = b'\x00\x01'  # 1 question
+    qdcount = b'\x00\x01'
     anscount = b'\x00\x00'
     authcount = b'\x00\x00'
     addcount = b'\x00\x00'
     header = transaction_id + flags + qdcount + anscount + authcount + addcount
-    question = data[12:]  # Echo the question section
+    question = data[12:]
     return header + question
 
-####################################################################################################################
-
+################################################################################################################################################
 def build_response(data):
-    # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
-    print(f"Domain Name = {domain_name}")
+    logging.info(f"Domain Name = {domain_name}")
     records = get_records(domain_name)
-    print(f"NS records = {records}")
+    logging.info(f"NS records = {records}")
 
-    # Transaction ID (from the original query)
     transaction_id = data[:2]
-
-
     Rcode = f"{get_rcode(domain_name, query_type, data):04b}"
-    # Flags (standard query response)
     flags = get_flags(Rcode)
-    
 
     if Rcode == '0000':
-        # Question Count (1 question)
         qdcount = b'\x00\x01'
-
-        # Answer Count (how many answers are being returned)
         anscount = b'\x00\x00'
-
-        # No additional authority or additional records
         authcount = len(records).to_bytes(2, byteorder='big')
         addcount = b'\x00\x00'
 
-        # DNS header (Transaction ID, Flags, Question Count, Answer Count, Authority Count, Additional Count)
         dns_header = transaction_id + flags + qdcount + anscount + authcount + addcount
-
-        # DNS question section (domain name and query type)
-        question_section = data[12:]  # The Question Section in a response is an echo of the question from the request.
-
-        # DNS body (resource records)
+        question_section = data[12:]
         authority_section = convert_records_to_binary(records)
         
         response = dns_header + question_section + authority_section
-
         return response
     else:
-        error_response = build_error_response(data,Rcode)
+        error_response = build_error_response(data, Rcode)
         return error_response
 
-#######################################################################################################
+################################################################################################################################################
+def handle_query(data, addr):
+    logging.info(f"TLD received data from Resolver: {data}")
 
-def handle_client(data, addr):
-    print(f"TLD received data from Resolver: {data}")
-
-    # Process the query
     response = build_response(data)
 
-    # Send the response back to the resolver
     sock.sendto(response, addr)
-    print(f"Sent response {response} to resolver")
+    logging.info(f"Sent response {response} to resolver")
 
 while True:
     data, addr = sock.recvfrom(512)
-    
-    # Create a new thread for each request
-    thread = threading.Thread(target=handle_client, args=(data, addr))
+    thread = threading.Thread(target=handle_query, args=(data, addr))
     thread.start()
-
-
-    
