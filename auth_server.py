@@ -8,9 +8,6 @@ auth_port = 5357
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((auth_ip, auth_port))
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
-
 auth_database = {
     "example.com": {
         "A": [
@@ -228,9 +225,10 @@ def build_error_response(data, rcode):
 def build_response(data):
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
-    logging.info(f"Domain Name = {domain_name}")
+    print(f"Domain Name = {domain_name}")
+
     records = get_records(domain_name,query_type, )
-    logging.info(f"records = {records}")
+    print(f"records = {records}")
 
     # Transaction ID (from the original query)
     transaction_id = data[:2]
@@ -270,14 +268,18 @@ def build_response(data):
 #########################################################################################################################
 
 def handle_client(data, addr):
-    logging.info(f"Received data: {data} from {addr}")
+    print(f"Received data: {data} from {addr}")
 
     # Process the query
     response = build_response(data)
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
+<<<<<<< HEAD
     logging.info(f"Sent response {response} to resolver\n\n")
+=======
+    print(f"Sent response {response} to resolver")
+>>>>>>> parent of bd970ae (multiplexing v1)
 
 ###############################################################################################################################
 while True:

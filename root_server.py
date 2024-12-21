@@ -8,9 +8,6 @@ root_port = 5354
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((root_ip, root_port))
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
-
 # Root server database with NS records for TLDs .com and .org
 # Root server database with IP addresses as strings in the NS records
 root_database = {
@@ -241,9 +238,9 @@ def build_response(data):
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
     tld = get_tld(domain_name)
-    logging.info(f"TLD = {tld}")
+    print(f"TLD = {tld}")
     records = get_records(tld)
-    logging.info(f"NS records = {records}")
+    print(f"NS records = {records}")
 
     # Transaction ID (from the original query)
     transaction_id = data[:2]
@@ -281,14 +278,18 @@ def build_response(data):
 ######################################################################################################################################################
 
 def handle_client(data, addr):
-    logging.info(f"Root received data from Resolver: {data}")
+    print(f"Root received data from Resolver: {data}")
 
     # Process the query
     response = build_response(data)
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
+<<<<<<< HEAD
     logging.info(f"Sent response {response} to resolver \n\n")
+=======
+    print(f"Sent response {response} to resolver")
+>>>>>>> parent of bd970ae (multiplexing v1)
 
 while True:
     data, addr = sock.recvfrom(512)
