@@ -217,9 +217,10 @@ def handle_query(data, addr):
     response = build_response(data)
 
     sock.sendto(response, addr)
-    logging.info(f"Sent response {response} to resolver")
+    logging.info(f"Sent response {response} to resolver \n\n")
 
 while True:
     data, addr = sock.recvfrom(512)
-    thread = threading.Thread(target=handle_query, args=(data, addr))
-    thread.start()
+    handle_query(data, addr)
+    # thread = threading.Thread(target=handle_query, args=(data, addr))
+    # thread.start()

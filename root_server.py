@@ -12,14 +12,31 @@ sock.bind((root_ip, root_port))
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
 
 # Root server database with NS records for TLDs .com and .org
+# Root server database with IP addresses as strings in the NS records
 root_database = {
-    "com": {"NS": [{"value": b"ns1.tld-com.server", "ttl": 3600}]},
-    "org": {"NS": [{"value": b"ns1.tld-org.server", "ttl": 3600}]}
+    "com": {
+        "NS": [
+            {
+                "value": b"ns1.tld-com.server",
+                "ttl": 3600,
+                "ip": b"127.0.0.1"  # Store as string
+            }
+        ]
+    },
+    "org": {
+        "NS": [
+            {
+                "value": b"ns1.tld-org.server",
+                "ttl": 3600,
+                "ip": b"127.0.0.1"  # Store as string
+            }
+        ]
+    }
 }
+
         
 ####################################################################################
 def get_records(tld):
-
     if tld in root_database:
         # Retrieve NS records for the given TLD from the root database
         ns_records = root_database[tld]["NS"]
@@ -28,13 +45,16 @@ def get_records(tld):
         
         # Iterate over each NS record for the TLD
         for record in ns_records:
-            # Each record is a dictionary with a 'value' (the nameserver) and 'ttl' (time to live)
+            # Each record is a dictionary with a 'value' (the nameserver), 'ttl' (time to live), and 'ip' (IP address)
             record_data = {
                 "name": tld.encode(),  # The name field will be the TLD itself
                 "type": 2,  # NS record type is 2
                 "class": 1,  # IN class is 1
                 "ttl": record["ttl"],  # TTL in seconds
-                "rdata": record["value"]  # The RDATA is the nameserver value
+                "rdata": {
+                    "ns_name": record["value"],  # The nameserver value
+                    "ip_address": record["ip"]  # The IP address of the nameserver
+                }
             }
             records.append(record_data)
         
@@ -58,7 +78,13 @@ def encode_domain_name(domain):
     return encoded
 
 ######################################################################################################################
+def convert_ip_to_binary(ip):
+    """
+    Converts an IPv4 address in string format (e.g., b"127.0.0.1") to its binary representation.
+    """
+    return b''.join(int(octet).to_bytes(1, byteorder='big') for octet in ip.decode().split('.'))
 
+#######################################################################################################################
 def convert_records_to_binary(records):
     # Initialize an empty bytearray to hold the concatenated binary records
     binary_records = bytearray()
@@ -67,23 +93,33 @@ def convert_records_to_binary(records):
         # Encode the domain name (name of the TLD)
         encoded_name = encode_domain_name(record["name"].decode())
 
-        # Type (2 bytes)
+        # Type (2 bytes) -> 2 for NS record
         encoded_type = record["type"].to_bytes(2, byteorder='big')
 
-        # Class (2 bytes)
+        # Class (2 bytes) -> 1 for IN
         encoded_class = record["class"].to_bytes(2, byteorder='big')
 
         # TTL (4 bytes)
         encoded_ttl = record["ttl"].to_bytes(4, byteorder='big')
 
-        # RDATA (the nameserver value)
-        encoded_rdata = encode_domain_name(record["rdata"].decode())
+        # RDATA (the nameserver value followed by the IP address)
+        encoded_rdata_name = encode_domain_name(record["rdata"].decode())
+        encoded_ip = convert_ip_to_binary(record["ip"])  # Convert IP from string to binary
+        print(f"Encoded IP = {encoded_ip}")
+        encoded_rdata = encoded_rdata_name + encoded_ip  # Combine name and binary IP in RDATA
 
         # Length of the RDATA (2 bytes)
         encoded_rdata_length = len(encoded_rdata).to_bytes(2, byteorder='big')
 
         # Combine all parts of the record into a binary format
-        binary_record = encoded_name + encoded_type + encoded_class + encoded_ttl + encoded_rdata_length + encoded_rdata
+        binary_record = (
+            encoded_name
+            + encoded_type
+            + encoded_class
+            + encoded_ttl
+            + encoded_rdata_length
+            + encoded_rdata
+        )
 
         # Append the binary record to the bytearray
         binary_records.extend(binary_record)
@@ -197,6 +233,7 @@ def build_error_response(data, rcode):
     header = transaction_id + flags + qdcount + anscount + authcount + addcount
     question = data[12:]  # Echo the question section
     return header + question
+
 ####################################################################################################################
 
 
@@ -232,6 +269,7 @@ def build_response(data):
 
         # DNS body (resource records)
         authority_section = convert_records_to_binary(records)
+        print(f"Authority section {authority_section}")
 
         response = dns_header + question_section + authority_section
         return response
@@ -240,7 +278,7 @@ def build_response(data):
         error_response = build_error_response(data,Rcode)
         return error_response
 
-
+######################################################################################################################################################
 
 def handle_client(data, addr):
     logging.info(f"Root received data from Resolver: {data}")
@@ -250,14 +288,15 @@ def handle_client(data, addr):
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
-    logging.info(f"Sent response {response} to resolver")
+    logging.info(f"Sent response {response} to resolver \n\n")
 
 while True:
     data, addr = sock.recvfrom(512)
+    handle_client(data, addr)
     
-    # Create a new thread for each request
-    thread = threading.Thread(target=handle_client, args=(data, addr))
-    thread.start()
+    # # Create a new thread for each request
+    # thread = threading.Thread(target=handle_client, args=(data, addr))
+    # thread.start()
 
     
     

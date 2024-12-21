@@ -85,6 +85,7 @@ def remove_ns_records_and_reset_qr(response):
     return modified_response
 
 #################################################################################################################################
+
 def check_for_error(response):
     # Flags are in bytes 2 and 3 of the response
     flags = response[2:4]
@@ -109,53 +110,49 @@ def check_for_error(response):
 ################################################################################################################################
 def handle_query(data, addr):
 
-    thread_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
    
-    try:
-        binary_domain_name = get_binary_domain(data)
-        if b'\x04arpa\x00' in binary_domain_name:
-            return  # Reject reverse lookup for ARPA domains
+    binary_domain_name = get_binary_domain(data)
+    if b'\x04arpa\x00' in binary_domain_name:
+        return  # Reject reverse lookup for ARPA domains
 
-        logging.info(f"Binary Domain Name = {binary_domain_name}")
-        logging.info(f"Resolver received data from client: {data}")
-        
-        # ROOT SERVER
-        # with lock:
-        print("\n\nROOT SERVER:")
-        sock.sendto(data, (root_ip, root_port))
-        logging.info(f"Resolver sent data {data} to root server")
-        root_response, _ = sock.recvfrom(512)
-        logging.info(f"Resolver received response from root: {root_response}")
-        root_response = check_for_error(root_response)
-        
-        # TLD SERVER
-        # with lock:
-        print("\n\nTLD SERVER:")
-        tld_query = remove_ns_records_and_reset_qr(root_response)  # We are using constant IPs
-        logging.info(f"TLD Query: {tld_query}")
-        sock.sendto(tld_query, (tld_ip, tld_port))
-        logging.info(f"Resolver sent data to TLD server: {root_response}")
-        tld_response, _ = sock.recvfrom(512)
-        logging.info(f"Resolver received response from TLD: {tld_response}")
-        tld_response = check_for_error(tld_response)
-        
-        # AUTHORITATIVE SERVER
-        #with lock:
-        print("\n\nAUHORITATIVE SERVER:")
-        auth_query = remove_ns_records_and_reset_qr(tld_response)
-        logging.info(f"Authoritative Query: {auth_query}")
-        sock.sendto(auth_query, (auth_ip, auth_port))
-        logging.info(f"Resolver sent data {auth_query} to authoritative server")
-        auth_response, _ = sock.recvfrom(512)
-        logging.info(f"Resolver received response from authoritative: {auth_response}")
-        auth_response = check_for_error(auth_response)
+    logging.info(f"Binary Domain Name = {binary_domain_name}")
+    logging.info(f"Resolver received data from client: {data}")
+    
+    # ROOT SERVER
+    # with lock:
+    print("\n\nROOT SERVER:")
+    sock.sendto(data, (root_ip, root_port))
+    logging.info(f"Resolver sent data {data} to root server")
+    root_response, _ = sock.recvfrom(512)
+    logging.info(f"Resolver received response from root: {root_response}")
+    root_response = check_for_error(root_response)
+    
+    # TLD SERVER
+    # with lock:
+    print("\n\nTLD SERVER:")
+    tld_query = remove_ns_records_and_reset_qr(root_response)  # We are using constant IPs
+    logging.info(f"TLD Query: {tld_query}")
+    sock.sendto(tld_query, (tld_ip, tld_port))
+    logging.info(f"Resolver sent data to TLD server: {root_response}")
+    tld_response, _ = sock.recvfrom(512)
+    logging.info(f"Resolver received response from TLD: {tld_response}")
+    tld_response = check_for_error(tld_response)
+    
+    # AUTHORITATIVE SERVER
+    #with lock:
+    print("\n\nAUHORITATIVE SERVER:")
+    auth_query = remove_ns_records_and_reset_qr(tld_response)
+    logging.info(f"Authoritative Query: {auth_query}")
+    sock.sendto(auth_query, (auth_ip, auth_port))
+    logging.info(f"Resolver sent data {auth_query} to authoritative server")
+    auth_response, _ = sock.recvfrom(512)
+    logging.info(f"Resolver received response from authoritative: {auth_response}")
+    auth_response = check_for_error(auth_response)
 
-        # Send the final response to the client
-        sock.sendto(auth_response, addr)
-        logging.info(f"Resolver sent data back to client \n\n\n\n")
+    # Send the final response to the client
+    sock.sendto(auth_response, addr)
+    logging.info(f"Resolver sent data back to client \n\n\n\n")
 
-    finally:
-        thread_sock.close() 
 
 
 while True:
@@ -163,6 +160,4 @@ while True:
         data, addr = sock.recvfrom(512)
         handle_query(data, addr)
 
-        # Create a new thread for each incoming request
-        threading.Thread(target=handle_query, args=(data, addr)).start()
     

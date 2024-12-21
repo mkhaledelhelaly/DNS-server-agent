@@ -277,13 +277,14 @@ def handle_client(data, addr):
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
-    logging.info(f"Sent response {response} to resolver")
+    logging.info(f"Sent response {response} to resolver\n\n")
 
 ###############################################################################################################################
 while True:
     data, addr = sock.recvfrom(512)
+    handle_client(data, addr)
     
-    # Create a new thread for each request
-    thread = threading.Thread(target=handle_client, args=(data, addr))
-    thread.start()
+    # # Create a new thread for each request
+    # thread = threading.Thread(target=handle_client, args=(data, addr))
+    # thread.start()
     
