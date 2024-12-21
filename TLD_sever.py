@@ -23,7 +23,29 @@ tld_database = {
             {"value": b"ns1.auth-example.org", "ttl": 3600},
         ]
     },
+    "example.net": {
+        "NS": [
+            {"value": b"ns1.auth-example.net", "ttl": 3600},
+        ]
+    },
+    "google.com": {
+        "NS": [
+            {"value": b"ns1.auth-google.com", "ttl": 3600},
+        ]
+    },
+    "wikipedia.org": {
+        "NS": [
+            {"value": b"ns1.auth-wikipedia.org", "ttl": 3600},
+        ]
+    },
+    "youtube.net": {
+        "NS": [
+            {"value": b"ns1.auth-youtube.net", "ttl": 3600},
+        ]
+    },
+    
 }
+
 
 
 ######################################################################################################################
@@ -234,8 +256,17 @@ def build_response(data):
 
         # DNS body (resource records)
         authority_section = convert_records_to_binary(records)
+
+        additional_section = (
+            b'\xc0\x0c'  # Pointer to domain name (compression offset 12)
+            + b'\x00\x01'  # Type: A (1)
+            + b'\x00\x01'  # Class: IN (1)
+            + (3600).to_bytes(4, byteorder='big')  # TTL: 3600 seconds
+            + b'\x00\x04'  # RDLENGTH: 4 bytes (IPv4 address length)
+            + b'\x7f\x00\x00\x01'  # RDATA: 127.0.0.1 in bytes
+        )
         
-        response = dns_header + question_section + authority_section
+        response = dns_header + question_section + authority_section + additional_section
 
         return response
     else:
@@ -258,8 +289,8 @@ while True:
     data, addr = sock.recvfrom(512)
     
     # Create a new thread for each request
-    thread = threading.Thread(target=handle_client, args=(data, addr))
-    thread.start()
+    threading.Thread(target=handle_client, args=(data, addr)).start()
+   
 
 
     

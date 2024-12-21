@@ -13,19 +13,71 @@ auth_database = {
         "A": [
             {"value": "192.0.2.1", "ttl": 3600},  # A record for example.com
         ],
-        "NS": [
-            {"value": "ns1.example.com", "ttl": 3600},  # NS record for example.com
+        "MX": [
+            {"value": "mail.example.com", "priority": 10, "ttl": 3600},  # MX record for example.com
+        ],
+        "CNAME": [
+            {"alias": "www.example.com", "value": "www.example.com", "ttl": 3600},  # CNAME for www.example.com
         ]
     },
     "example.org": {
         "A": [
             {"value": "198.51.100.2", "ttl": 3600},  # A record for example.org
         ],
-        "NS": [
-            {"value": "ns1.example.org", "ttl": 3600},  # NS record for example.org
+        "MX": [
+            {"value": "mail.example.org", "priority": 10, "ttl": 3600},  # MX record for example.org
+        ],
+        "CNAME": [
+            {"alias": "www.example.org", "value": "www.example.org", "ttl": 3600},  # CNAME for www.example.org
         ]
     },
+    "example.net": {
+        "A": [
+            {"value": "203.0.113.1", "ttl": 3600},  # A record for example.net
+        ],
+        "MX": [
+            {"value": "mail.example.net", "priority": 10, "ttl": 3600},  # MX record for example.net
+        ],
+        "CNAME": [
+            {"alias": "www.example.net", "value": "www.example.net", "ttl": 3600},  # CNAME for www.example.net
+        ]
+    },
+    "google.com": {
+        "A": [
+            {"value": "216.58.214.14", "ttl": 3600},  # A record for google.com
+        ],
+        "MX": [
+            {"value": "mail.google.com", "priority": 10, "ttl": 3600},  # MX record for google.com
+        ],
+        "CNAME": [
+            {"alias": "www.google.com", "value": "www.google.com", "ttl": 3600},  # CNAME for www.google.com
+        ]
+    },
+    "wikipedia.org": {
+        "A": [
+            {"value": "208.80.154.224", "ttl": 3600},  # A record for wikipedia.org
+        ],
+        "MX": [
+            {"value": "mail.wikipedia.org", "priority": 10, "ttl": 3600},  # MX record for wikipedia.org
+        ],
+        "CNAME": [
+            {"alias": "www.wikipedia.org", "value": "www.wikipedia.org", "ttl": 3600},  # CNAME for www.wikipedia.org
+        ]
+    },
+    "youtube.net": {
+        "A": [
+            {"value": "142.250.190.14", "ttl": 3600},  # A record for youtube.net
+        ],
+        "MX": [
+            {"value": "mail.youtube.net", "priority": 10, "ttl": 3600},  # MX record for youtube.net
+        ],
+        "CNAME": [
+            {"alias": "www.youtube.net", "value": "www.youtube.net", "ttl": 3600},  # CNAME for www.youtube.net
+        ]
+    },
+  
 }
+
 #############################################################################################################################################################
 
 ###########################################################################################################################################
@@ -282,5 +334,5 @@ while True:
     data, addr = sock.recvfrom(512)
     
     # Create a new thread for each request
-    thread = threading.Thread(target=handle_client, args=(data, addr))
-    thread.start()
+    threading.Thread(target=handle_client, args=(data, addr)).start()
+    

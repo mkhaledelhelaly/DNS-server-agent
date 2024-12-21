@@ -4,18 +4,12 @@ import threading
 # Resolver details
 resolver_ip = '127.0.0.1'
 resolver_port = 53
-root_ip = '127.0.0.1'
 root_port = 5354
-tld_ip = '127.0.0.1'
 tld_port = 5356
-auth_ip = '127.0.0.1'
 auth_port = 5357
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((resolver_ip, resolver_port))
-
-#Lock for thread synchronization
-lock = threading.Lock()
 
 ################################################################################################################
 
@@ -81,6 +75,46 @@ def remove_ns_records_and_reset_qr(response):
     return modified_response
 
 #################################################################################################################################
+
+def extract_ip_from_response(root_response):
+    # Skip the header (12 bytes)
+    pointer = 12
+    
+    # Skip the question section
+    # Find the end of the domain name
+    while root_response[pointer] != 0:
+        pointer += 1
+    # Skip null byte and QTYPE/QCLASS (5 bytes total)
+    pointer += 5
+    
+    # Skip the NS record in authority section
+    # First find the end of the domain name
+    while root_response[pointer] != 0:
+        pointer += 1
+
+    # Skip null byte and NS record fields (type, class, TTL, rdlength, rdata)
+    pointer += 1  # null byte
+    pointer += 2  # type
+    pointer += 2  # class
+    pointer += 4  # TTL
+    rdlength = int.from_bytes(root_response[pointer:pointer+2], 'big')
+    pointer += 2  # rdlength
+    pointer += rdlength  # skip rdata
+    
+    # Now we're at the additional section
+    # Skip the name compression pointer (2 bytes)
+    pointer += 2
+    # Skip type, class, TTL (8 bytes)
+    pointer += 8
+    # Skip rdlength (2 bytes)
+    pointer += 2
+    
+    # Extract the 4 bytes of IP address
+    ip_bytes = root_response[pointer:pointer+4]
+    return f"{ip_bytes[0]}.{ip_bytes[1]}.{ip_bytes[2]}.{ip_bytes[3]}"
+
+#################################################################################################################################
+
 def check_for_error(response):
     # Flags are in bytes 2 and 3 of the response
     flags = response[2:4]
@@ -89,16 +123,20 @@ def check_for_error(response):
     flags_int = int.from_bytes(flags, byteorder='big')
     
     # Extract the last 4 bits (Rcode)
-    rcode = flags_int & 0b1111  # Mask the last 4 bits
+    rcode = flags_int & 0b1111
 
     if rcode == 0:
         print("No error found in Query")
     elif rcode == 1:
         print("RCODE = 1: Format Error in Query sent to server")
+    elif rcode == 2:
+        print("RCODE = 2: Server Failure")    
     elif rcode == 3:
         print("RCODE = 3: Non-Existent Domain")
     elif rcode ==4:
         print("RCODE = 4: Unsupported Query Type")
+    elif rcode == 5:
+        print("RCODE = 5: Policy Restricion")
 
     return response
 
@@ -116,35 +154,49 @@ def handle_query(data, addr):
         print(f"Resolver received data from client: {data}")
         
         # ROOT SERVER
-        # with lock:
         print("\n\nROOT SERVER:")
+        root_ip = '127.0.0.1'
         sock.sendto(data, (root_ip, root_port))
         print(f"Resolver sent data {data} to root server")
         root_response, _ = sock.recvfrom(512)
         print(f"Resolver received response from root: {root_response}")
         root_response = check_for_error(root_response)
+        if root_response[3] & 0x0F != 0:  # If RCODE is non-zero
+            print("Error detected in Root Server response. Stopping query.\n\n")
+            sock.sendto(root_response, addr)  # Relay the error response to the client
+            return
         
         # TLD SERVER
-        # with lock:
         print("\n\nTLD SERVER:")
-        tld_query = remove_ns_records_and_reset_qr(root_response)  # We are using constant IPs
+        tld_query = remove_ns_records_and_reset_qr(root_response)
         print(f"TLD Query: {tld_query}")
+        tld_ip = extract_ip_from_response(root_response)
+        print(f"TLD IP Address: {tld_ip}")
         sock.sendto(tld_query, (tld_ip, tld_port))
         print(f"Resolver sent data to TLD server: {root_response}")
         tld_response, _ = sock.recvfrom(512)
         print(f"Resolver received response from TLD: {tld_response}")
         tld_response = check_for_error(tld_response)
+        if tld_response[3] & 0x0F != 0:  # If RCODE is non-zero
+            print("Error detected in TLD Server response. Stopping query.\n\n")
+            sock.sendto(tld_response, addr)  # Relay the error response to the client
+            return
         
         # AUTHORITATIVE SERVER
-        #with lock:
         print("\n\nAUHORITATIVE SERVER:")
         auth_query = remove_ns_records_and_reset_qr(tld_response)
         print(f"Authoritative Query: {auth_query}")
-        sock.sendto(auth_query, (auth_ip, auth_port))
+        auth_ip = extract_ip_from_response(tld_response)
+        print(f"AUTHORITATIVE IP Address: {auth_ip}")
+        sock.sendto(auth_query, (root_ip, auth_port))
         print(f"Resolver sent data {auth_query} to authoritative server")
         auth_response, _ = sock.recvfrom(512)
         print(f"Resolver received response from authoritative: {auth_response}")
         auth_response = check_for_error(auth_response)
+        if auth_response[3] & 0x0F != 0:  # If RCODE is non-zero
+            print("Error detected in Authoritative Server response. Stopping query.\n\n")
+            sock.sendto(auth_response, addr)  # Relay the error response to the client
+            return
 
         # Send the final response to the client
         sock.sendto(auth_response, addr)
@@ -158,8 +210,7 @@ while True:
         # Step 1: Receive data from the client
         data, addr = sock.recvfrom(512)
         handle_query(data, addr)
-
-        # # Create a new thread for each incoming request
         # threading.Thread(target=handle_query, args=(data, addr)).start()
+
     
 
