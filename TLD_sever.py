@@ -252,15 +252,6 @@ def handle_client(data, addr):
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
-<<<<<<< HEAD
-    logging.info(f"Sent response {response} to resolver \n\n")
-
-while True:
-    data, addr = sock.recvfrom(512)
-    handle_query(data, addr)
-    # thread = threading.Thread(target=handle_query, args=(data, addr))
-    # thread.start()
-=======
     print(f"Sent response {response} to resolver")
 
 while True:
@@ -272,4 +263,4 @@ while True:
 
 
     
->>>>>>> parent of bd970ae (multiplexing v1)
+

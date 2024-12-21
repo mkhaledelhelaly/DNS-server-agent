@@ -275,18 +275,12 @@ def handle_client(data, addr):
 
     # Send the response back to the resolver
     sock.sendto(response, addr)
-<<<<<<< HEAD
-    logging.info(f"Sent response {response} to resolver\n\n")
-=======
     print(f"Sent response {response} to resolver")
->>>>>>> parent of bd970ae (multiplexing v1)
 
 ###############################################################################################################################
 while True:
     data, addr = sock.recvfrom(512)
-    handle_client(data, addr)
     
-    # # Create a new thread for each request
-    # thread = threading.Thread(target=handle_client, args=(data, addr))
-    # thread.start()
-    
+    # Create a new thread for each request
+    thread = threading.Thread(target=handle_client, args=(data, addr))
+    thread.start()
