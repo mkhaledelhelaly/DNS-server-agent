@@ -9,73 +9,173 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((auth_ip, auth_port))
 
 auth_database = {
-    "example.com": {
+   "example.com": {
         "A": [
             {"value": "192.0.2.1", "ttl": 3600},  # A record for example.com
+        ],
+        "AAAA": [
+            {"value": "2001:0db8:85a3:0000:0000:8a2e:0370:7334", "ttl": 3600},  # IPv6 address for example.com
+        ],
+        "PTR": [
+            {"value": "example.com", "ttl": 3600},  # Reverse DNS record for 192.0.2.1
+        ],
+        "SOA": [
+            {
+                "primary_ns": "ns1.example.com",
+                "admin_email": "admin.example.com",
+                "serial": 2024122701,
+                "refresh": 7200,
+                "retry": 3600,
+                "expire": 1209600,
+                "minimum": 3600,
+                "ttl": 3600,
+            }
+        ],
+        "TXT": [
+            {"value": "v=spf1 include:_spf.example.com ~all", "ttl": 3600},  # SPF record for email authentication
+            {"value": "google-site-verification=1234567890abcdef", "ttl": 3600},  # Google site verification
+        ],
+        "SRV": [
+            {
+                "service": "_sip._tcp",
+                "priority": 10,
+                "weight": 5,
+                "port": 5060,
+                "target": "sip.example.com",
+                "ttl": 3600,
+            },
+            {
+                "service": "_ldap._tcp",
+                "priority": 10,
+                "weight": 5,
+                "port": 389,
+                "target": "ldap.example.com",
+                "ttl": 3600,
+            },
+        ],
+        "CAA": [
+            {"tag": "issue", "value": "letsencrypt.org", "ttl": 3600},  # Allow Let's Encrypt to issue certificates
+            {"tag": "iodef", "value": "mailto:security@example.com", "ttl": 3600},  # Incident reporting
         ],
         "MX": [
             {"value": "mail.example.com", "priority": 10, "ttl": 3600},  # MX record for example.com
         ],
         "CNAME": [
-            {"alias": "www.example.com", "value": "www.example.com", "ttl": 3600},  # CNAME for www.example.com
-        ]
+            {"alias": "www.example.com", "value": "example.com", "ttl": 3600},  # CNAME for www.example.com
+        ],
     },
-    "example.org": {
+
+     "example.org": {
         "A": [
             {"value": "198.51.100.2", "ttl": 3600},  # A record for example.org
+        ],
+        "AAAA": [
+            {"value": "2001:0db8:85a3:0000:0000:8a2e:0370:7335", "ttl": 3600},  # IPv6 address for example.org
+        ],
+        "PTR": [
+            {"value": "example.org", "ttl": 3600},  # Reverse DNS record for 198.51.100.2
+        ],
+        "SOA": [
+            {
+                "primary_ns": "ns1.example.org",
+                "admin_email": "admin.example.org",
+                "serial": 2024122702,
+                "refresh": 7200,
+                "retry": 3600,
+                "expire": 1209600,
+                "minimum": 3600,
+                "ttl": 3600,
+            }
+        ],
+        "TXT": [
+            {"value": "v=spf1 include:_spf.example.org ~all", "ttl": 3600},  # SPF record for email authentication
+            {"value": "google-site-verification=abcdef1234567890", "ttl": 3600},  # Google site verification
+        ],
+        "SRV": [
+            {
+                "service": "_sip._tcp",
+                "priority": 10,
+                "weight": 5,
+                "port": 5060,
+                "target": "sip.example.org",
+                "ttl": 3600,
+            },
+            {
+                "service": "_ldap._tcp",
+                "priority": 10,
+                "weight": 5,
+                "port": 389,
+                "target": "ldap.example.org",
+                "ttl": 3600,
+            },
+        ],
+        "CAA": [
+            {"tag": "issue", "value": "digicert.com", "ttl": 3600},  # Allow DigiCert to issue certificates
+            {"tag": "iodef", "value": "mailto:security@example.org", "ttl": 3600},  # Incident reporting
         ],
         "MX": [
             {"value": "mail.example.org", "priority": 10, "ttl": 3600},  # MX record for example.org
         ],
         "CNAME": [
-            {"alias": "www.example.org", "value": "www.example.org", "ttl": 3600},  # CNAME for www.example.org
-        ]
+            {"alias": "www.example.org", "value": "example.org", "ttl": 3600},  # CNAME for www.example.org
+        ],
     },
+
     "example.net": {
         "A": [
             {"value": "203.0.113.1", "ttl": 3600},  # A record for example.net
+        ],
+        "AAAA": [
+            {"value": "2001:0db8:85a3:0000:0000:8a2e:0370:7336", "ttl": 3600},  # IPv6 address for example.net
+        ],
+        "PTR": [
+            {"value": "example.net", "ttl": 3600},  # Reverse DNS record for 203.0.113.1
+        ],
+        "SOA": [
+            {
+                "primary_ns": "ns1.example.net",
+                "admin_email": "admin.example.net",
+                "serial": 2024122703,
+                "refresh": 7200,
+                "retry": 3600,
+                "expire": 1209600,
+                "minimum": 3600,
+                "ttl": 3600,
+            }
+        ],
+        "TXT": [
+            {"value": "v=spf1 include:_spf.example.net ~all", "ttl": 3600},  # SPF record for email authentication
+            {"value": "facebook-site-verification=123456abcdef", "ttl": 3600},  # Facebook site verification
+        ],
+        "SRV": [
+            {
+                "service": "_sip._tcp",
+                "priority": 20,
+                "weight": 10,
+                "port": 5060,
+                "target": "sip.example.net",
+                "ttl": 3600,
+            },
+            {
+                "service": "_ftp._tcp",
+                "priority": 15,
+                "weight": 5,
+                "port": 21,
+                "target": "ftp.example.net",
+                "ttl": 3600,
+            },
+        ],
+        "CAA": [
+            {"tag": "issue", "value": "letsencrypt.org", "ttl": 3600},  # Allow Let's Encrypt to issue certificates
+            {"tag": "iodef", "value": "mailto:admin@example.net", "ttl": 3600},  # Incident reporting
         ],
         "MX": [
             {"value": "mail.example.net", "priority": 10, "ttl": 3600},  # MX record for example.net
         ],
         "CNAME": [
-            {"alias": "www.example.net", "value": "www.example.net", "ttl": 3600},  # CNAME for www.example.net
-        ]
+            {"alias": "www.example.net", "value": "example.net", "ttl": 3600},  # CNAME for www.example.net
+        ],
     },
-    "google.com": {
-        "A": [
-            {"value": "216.58.214.14", "ttl": 3600},  # A record for google.com
-        ],
-        "MX": [
-            {"value": "mail.google.com", "priority": 10, "ttl": 3600},  # MX record for google.com
-        ],
-        "CNAME": [
-            {"alias": "www.google.com", "value": "www.google.com", "ttl": 3600},  # CNAME for www.google.com
-        ]
-    },
-    "wikipedia.org": {
-        "A": [
-            {"value": "208.80.154.224", "ttl": 3600},  # A record for wikipedia.org
-        ],
-        "MX": [
-            {"value": "mail.wikipedia.org", "priority": 10, "ttl": 3600},  # MX record for wikipedia.org
-        ],
-        "CNAME": [
-            {"alias": "www.wikipedia.org", "value": "www.wikipedia.org", "ttl": 3600},  # CNAME for www.wikipedia.org
-        ]
-    },
-    "youtube.net": {
-        "A": [
-            {"value": "142.250.190.14", "ttl": 3600},  # A record for youtube.net
-        ],
-        "MX": [
-            {"value": "mail.youtube.net", "priority": 10, "ttl": 3600},  # MX record for youtube.net
-        ],
-        "CNAME": [
-            {"alias": "www.youtube.net", "value": "www.youtube.net", "ttl": 3600},  # CNAME for www.youtube.net
-        ]
-    },
-  
 }
 
 #############################################################################################################################################################
@@ -96,78 +196,203 @@ def build_records(domain_name, record_type, records):
 
     for record in records:
         ttl = record['ttl']
-        value = record['value']
-        if record_type == 'A':
-            response_body += b'\xc0\x0c'  # Pointer to the domain name
-            response_body += b'\x00\x01'  # Specifies the record type as A (1)
-            response_body += b'\x00\x01'  # Specifies Class IN (Internet)
-            response_body += int(ttl).to_bytes(4,byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
-            response_body += b'\x00\x04'  # Length of the address (4 bytes for type A)
+        
 
-            ip_integers = map(int, value.split('.'))  # Split ip address to integers
-            ip_bytes = bytes(ip_integers)  # convert ip address integers to bytes
+        if record_type == 'A':
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x01'
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            response_body += b'\x00\x04'
+
+            ip_bytes = bytes(map(int, value.split('.')))
             response_body += ip_bytes
 
-        elif record_type == 'CNAME':
+        elif record_type == 'AAAA':
+            value = record['value']
             response_body += b'\xc0\x0c'  # Pointer to the domain name
-            response_body += b'\x00\x05'  # Specifies the record type as CNAME (5)
+            response_body += b'\x00\x1c'  # Specifies the record type as AAAA (28)
             response_body += b'\x00\x01'  # Specifies Class IN (Internet)
-            response_body += int(ttl).to_bytes(4,
-                                               byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
+            response_body += int(ttl).to_bytes(4, byteorder='big')  # TTL
+            response_body += b'\x00\x10'  # Length of the address (16 bytes for type AAAA)
 
-            cname_labels = value.split('.')  # Split the CNAME target into labels
-            cname_bytes = b""
-            for label in cname_labels:
-                label_length = len(label).to_bytes(1,
-                                                   byteorder='big')  # Convert the length of the label to a single byte.
-                label_encoded = label.encode()  # Encode the label (string) to bytes.
-                cname_bytes += label_length + label_encoded
-            cname_bytes += b'\x00'  # Add the null byte to terminate the CNAME
+            # Convert the IPv6 address into 16 bytes
+            import ipaddress
+            ipv6_bytes = ipaddress.IPv6Address(value).packed
+            response_body += ipv6_bytes
 
-            response_body += len(cname_bytes).to_bytes(2, byteorder='big')  # Length of the CNAME record
-            response_body += cname_bytes  # Append the CNAME record
+        elif record_type == 'CNAME':
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x05'
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+
+            cname_labels = value.split('.')
+            cname_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in cname_labels)
+            cname_bytes += b'\x00'
+
+            response_body += len(cname_bytes).to_bytes(2, byteorder='big')
+            response_body += cname_bytes
 
         elif record_type == 'NS':
-            response_body += b'\xc0\x0c'  # Pointer to the domain name
-            response_body += b'\x00\x02'  # Specifies the record type as NS (2)
-            response_body += b'\x00\x01'  # Specifies Class IN (Internet)
-            response_body += int(ttl).to_bytes(4,
-                                               byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x02'
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
 
-            ns_labels = value.split('.')  # Split the NS target into labels
-            ns_bytes = b""
-            for label in ns_labels:
-                label_length = len(label).to_bytes(1,
-                                                   byteorder='big')  # Convert the length of the label to a single byte.
-                label_encoded = label.encode()  # Encode the label (string) to bytes.
-                ns_bytes += label_length + label_encoded
-            ns_bytes += b'\x00'  # Add the null byte to terminate the NS name
+            ns_labels = value.split('.')
+            ns_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in ns_labels)
+            ns_bytes += b'\x00'
 
             response_body += len(ns_bytes).to_bytes(2, byteorder='big')
             response_body += ns_bytes
 
         elif record_type == 'MX':
-            response_body += b'\xc0\x0c'  # Pointer to the domain name
-            response_body += b'\x00\x0f'  # Specifies the record type as MX (15)
-            response_body += b'\x00\x01'  # Specifies Class IN (Internet)
-            response_body += int(ttl).to_bytes(4,
-                                               byteorder='big')  # Converts the Integer TTL value to a 4-byte binary representation
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x0f'
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
 
             priority = record['priority']
-            response_body += (2 + len(value) + 2).to_bytes(2, byteorder='big')  # Length of the MX record
-            response_body += priority.to_bytes(2, byteorder='big')  # Convert priority to 2 bytes
+            mx_labels = value.split('.')
+            mx_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in mx_labels)
+            mx_bytes += b'\x00'
 
-            mx_labels = value.split('.')  # Split the MX target into labels
-            mx_bytes = b""
-            for label in mx_labels:
-                label_length = len(label).to_bytes(1,
-                                                   byteorder='big')  # Convert the length of the label to a single byte.
-                label_encoded = label.encode()  # Encode the label (string) to bytes.
-                mx_bytes += label_length + label_encoded
-            mx_bytes += b'\x00'  # Add the null byte to terminate the MX name
-
+            response_body += (2 + len(mx_bytes)).to_bytes(2, byteorder='big')
+            response_body += priority.to_bytes(2, byteorder='big')
             response_body += mx_bytes
 
+        elif record_type == 'PTR':
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x0c'  # Specifies the record type as PTR (12)
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+
+            ptr_labels = value.split('.')
+            ptr_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in ptr_labels)
+            ptr_bytes += b'\x00'
+
+            response_body += len(ptr_bytes).to_bytes(2, byteorder='big')
+            response_body += ptr_bytes
+
+        elif record_type == 'SOA':
+            # SOA records have specific fields instead of a generic 'value'
+            response_body += b'\xc0\x0c'  # Pointer to domain name in the question section
+
+            response_body += b'\x00\x06'  # SOA record type (6)
+            response_body += b'\x00\x01'  # Class (IN - Internet)
+            response_body += int(ttl).to_bytes(4, byteorder='big')  # TTL as a 4-byte integer
+
+            # Extract SOA-specific fields
+            primary_ns = record['primary_ns']
+            admin_email = record['admin_email']
+            serial = record['serial']
+            refresh = record['refresh']
+            retry = record['retry']
+            expire = record['expire']
+            minimum = record['minimum']
+
+            # Split mname (primary nameserver) into labels
+            mname_labels = primary_ns.split('.')
+            # Split rname (responsible party's email) into labels, replace '.' with a separator
+            rname_labels = admin_email.replace('.', '@').split('@')
+
+            # Encoding for mname (Primary nameserver)
+            soa_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in mname_labels)
+            soa_bytes += b'\x00'  # Null byte to terminate the mname (primary nameserver)
+
+            # Encoding for rname (Responsible party's email)
+            soa_bytes += b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in rname_labels)
+            soa_bytes += b'\x00'  # Null byte to terminate the rname (email address)
+
+            # Add SOA-specific fields: serial, refresh, retry, expire, minimum TTL
+            soa_bytes += int(serial).to_bytes(4, byteorder='big')  # Serial number
+            soa_bytes += int(refresh).to_bytes(4, byteorder='big')  # Refresh interval
+            soa_bytes += int(retry).to_bytes(4, byteorder='big')  # Retry interval
+            soa_bytes += int(expire).to_bytes(4, byteorder='big')  # Expiry interval
+            soa_bytes += int(minimum).to_bytes(4, byteorder='big')  # Minimum TTL
+
+            # Length of the SOA record in bytes (the total size of soa_bytes)
+            response_body += len(soa_bytes).to_bytes(2, byteorder='big')  # Length of SOA data
+
+            # Append the actual SOA data
+            response_body += soa_bytes
+
+        elif record_type == 'TXT':
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x10'  # Specifies the record type as TXT (16)
+            response_body += b'\x00\x01'
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+
+            txt_bytes = len(value).to_bytes(1, byteorder='big') + value.encode()
+
+            response_body += len(txt_bytes).to_bytes(2, byteorder='big')
+            response_body += txt_bytes
+
+        elif record_type == 'SRV':
+            service = record['service']
+            priority = record['priority']
+            weight = record['weight']
+            port = record['port']
+            target = record['target']
+            ttl = record['ttl']
+
+            # Combine service and domain into the full SRV record name
+            service_domain = f"{service}.{domain_name}"
+
+            # Encode the service.domain labels
+            service_labels = service_domain.split('.')
+            service_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in service_labels)
+            service_bytes += b'\x00'  # Null byte to terminate the service domain name
+
+            # Encode the target labels
+            target_labels = target.split('.')
+            target_bytes = b"".join(len(label).to_bytes(1, byteorder='big') + label.encode() for label in target_labels)
+            target_bytes += b'\x00'  # Null byte to terminate the target domain name
+
+            # Add the record to the response body
+            response_body += b'\xc0\x0c'  # Pointer to the domain name in the question section
+            response_body += b'\x00\x21'  # Specifies the record type as SRV (33)
+            response_body += b'\x00\x01'  # Class IN (Internet)
+            response_body += int(ttl).to_bytes(4, byteorder='big')  # TTL
+
+            # Calculate the total length of the SRV record data
+            srv_data_length = 6 + len(target_bytes)
+            response_body += srv_data_length.to_bytes(2, byteorder='big')  # Data length
+
+            # Append SRV-specific fields
+            response_body += priority.to_bytes(2, byteorder='big')  # Priority
+            response_body += weight.to_bytes(2, byteorder='big')  # Weight
+            response_body += port.to_bytes(2, byteorder='big')  # Port
+            response_body += target_bytes  # Target hostname
+
+
+        elif record_type == 'CAA':
+            # CAA record structure
+            response_body += b'\xc0\x0c'  # Pointer to the domain name
+            response_body += b'\x01\x01'  # Specifies the record type as CAA (257)
+            response_body += b'\x00\x01'  # Class IN (Internet)
+            response_body += int(ttl).to_bytes(4, byteorder='big')  # TTL
+
+            # Parse CAA fields: flags, tag, and value
+            flags = record.get('flags', 0)  # Default flags to 0 if not provided
+            tag = record['tag']
+            value = record['value'].encode()
+
+            # Encode the tag and value fields
+            tag_bytes = len(tag).to_bytes(1, byteorder='big') + tag.encode()
+            value_length = len(tag_bytes) + len(value) + 1  # Total length of CAA data
+
+            # Append data length
+            response_body += value_length.to_bytes(2, byteorder='big')  # Length of CAA data
+            response_body += flags.to_bytes(1, byteorder='big')  # Flags
+            response_body += tag_bytes  # Tag field
+            response_body += value  # Value field
     return response_body
     
 ####################################################################################################################################################3
@@ -175,17 +400,18 @@ def build_records(domain_name, record_type, records):
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
-        1: 'A',
-        28: 'AAAA',
-        5: 'CNAME',
-        15: 'MX',
-        2: 'NS',
-        12: 'PTR',
-        6: 'SOA',
-        16: 'TXT',
-        33: 'SRV',
-        255: 'ANY'
-    }
+    1: 'A',
+    28: 'AAAA',
+    5: 'CNAME',
+    15: 'MX',
+    2: 'NS',
+    12: 'PTR',
+    6: 'SOA',
+    16: 'TXT',
+    33: 'SRV',
+    255: 'ANY',
+    257: 'CAA'
+}
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
 
@@ -231,7 +457,7 @@ def get_flags(Rcode):
 def get_rcode(domain_name, query_type, data):
     if not validate_query_format(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
         return 4  # NOTIMP
     if domain_name not in auth_database:
         return 3  # NXDOMAIN
@@ -329,7 +555,6 @@ def handle_client(data, addr):
     sock.sendto(response, addr)
     print(f"Sent response {response} to resolver")
 
-###############################################################################################################################
 while True:
     data, addr = sock.recvfrom(512)
     

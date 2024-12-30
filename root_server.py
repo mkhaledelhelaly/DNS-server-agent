@@ -8,11 +8,20 @@ root_port = 5354
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((root_ip, root_port))
 
-# Root server database with NS records for TLDs .com and .org
+# Root server database with NS and A records for TLDs
 root_database = {
-    "com": {"NS": [{"value": b"ns1.tld-com.server", "ttl": 3600}]},
-    "org": {"NS": [{"value": b"ns1.tld-org.server", "ttl": 3600}]},
-    "net": {"NS": [{"value": b"ns1.tld-net.server", "ttl": 3600}]}
+    "com": {
+        "NS": [{"value": b"ns1.tld-com.server", "ttl": 3600}],
+        "A": [{"name": "ns1.tld-com.server", "value": "127.0.0.1", "ttl": 3600}]
+    },
+    "org": {
+        "NS": [{"value": b"ns1.tld-org.server", "ttl": 3600}],
+        "A": [{"name": "ns1.tld-org.server", "value": "127.0.0.1", "ttl": 3600}]
+    },
+    "net": {
+        "NS": [{"value": b"ns1.tld-net.server", "ttl": 3600}],
+        "A": [{"name": "ns1.tld-net.server", "value": "127.0.0.1", "ttl": 3600}]
+    }
 }
 
         
@@ -90,6 +99,25 @@ def convert_records_to_binary(records):
     return bytes(binary_records)  # Return the concatenated binary string
 
 #####################################################################################################################
+def get_additional_section(tld):
+    additional_section = b""
+
+    if tld in root_database and "A" in root_database[tld]:
+        a_records = root_database[tld]["A"]  # Fetch A records
+
+        for record in a_records:
+            ip_bytes = socket.inet_aton(record["value"])  # Convert IP to binary
+            additional_section += (
+                encode_domain_name(record["name"])  # Encode the domain name
+                + b'\x00\x01'  # Type: A
+                + b'\x00\x01'  # Class: IN
+                + record["ttl"].to_bytes(4, byteorder="big")  # TTL
+                + b'\x00\x04'  # RDLENGTH: 4 bytes for IPv4
+                + ip_bytes  # RDATA: IP address in binary
+            )
+    return additional_section
+
+######################################################################################################################33
 def get_tld(domain_name):
     parts = domain_name.split('.')
     
@@ -100,17 +128,18 @@ def get_tld(domain_name):
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
-        1: 'A',
-        28: 'AAAA',
-        5: 'CNAME',
-        15: 'MX',
-        2: 'NS',
-        12: 'PTR',
-        6: 'SOA',
-        16: 'TXT',
-        33: 'SRV',
-        255: 'ANY'
-    }
+    1: 'A',
+    28: 'AAAA',
+    5: 'CNAME',
+    15: 'MX',
+    2: 'NS',
+    12: 'PTR',
+    6: 'SOA',
+    16: 'TXT',
+    33: 'SRV',
+    255: 'ANY',
+    257: 'CAA'
+}
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
 
@@ -155,7 +184,7 @@ def get_flags(Rcode):
 def get_rcode(tld, query_type, data):
     if not validate_query_format(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
         return 4  # NOTIMP
     if not get_records(tld):
         return 3  # NXDOMAIN
@@ -216,15 +245,6 @@ def build_response(data):
 
 
     if Rcode == '0000':
-        # Question Count (1 question)
-        qdcount = b'\x00\x01'
-
-        anscount = b'\x00\x00'
-        authcount = len(records).to_bytes(2, byteorder='big')
-        addcount = b'\x00\x00'
-
-        # DNS header (Transaction ID, Flags, Question Count, Answer Count, Authority Count, Additional Count)
-        dns_header = transaction_id + flags + qdcount + anscount + authcount + addcount
 
         # DNS question section (domain name and query type)
         question_section = data[12:]  # The Question Section in a response is an echo of the question from the request.
@@ -232,15 +252,16 @@ def build_response(data):
         # DNS body (resource records)
         authority_section = convert_records_to_binary(records)
 
-        additional_section = (
-            b'\xc0\x0c'  # Pointer to domain name (compression offset 12)
-            + b'\x00\x01'  # Type: A (1)
-            + b'\x00\x01'  # Class: IN (1)
-            + (3600).to_bytes(4, byteorder='big')  # TTL: 3600 seconds
-            + b'\x00\x04'  # RDLENGTH: 4 bytes (IPv4 address length)
-            + b'\x7f\x00\x00\x01'  # RDATA: 127.0.0.1 in bytes
-        )
-        print(f"Additional section: {additional_section}")
+        additional_section = get_additional_section(tld)
+
+        # Question Count (1 question)
+        qdcount = b'\x00\x01'
+        anscount = b'\x00\x00'
+        authcount = len(records).to_bytes(2, byteorder='big')
+        addcount = (len(additional_section) // 16).to_bytes(2, byteorder="big")
+
+        # DNS header (Transaction ID, Flags, Question Count, Answer Count, Authority Count, Additional Count)
+        dns_header = transaction_id + flags + qdcount + anscount + authcount + addcount
 
         response = dns_header + question_section + authority_section + additional_section
         return response

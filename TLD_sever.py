@@ -16,35 +16,29 @@ tld_database = {
     "example.com": {
         "NS": [
             {"value": b"ns1.auth-example.com", "ttl": 3600},
+        ],
+        "A": [
+            {"name": "ns1.auth-example.com", "value": "127.0.0.1", "ttl": 3600},
         ]
     },
     "example.org": {
         "NS": [
             {"value": b"ns1.auth-example.org", "ttl": 3600},
+        ],
+        "A": [
+            {"name": "ns1.auth-example.org", "value": "127.0.0.1", "ttl": 3600},
         ]
     },
     "example.net": {
         "NS": [
             {"value": b"ns1.auth-example.net", "ttl": 3600},
+        ],
+        "A": [
+            {"name": "ns1.auth-example.net", "value": "127.0.0.1", "ttl": 3600},
         ]
-    },
-    "google.com": {
-        "NS": [
-            {"value": b"ns1.auth-google.com", "ttl": 3600},
-        ]
-    },
-    "wikipedia.org": {
-        "NS": [
-            {"value": b"ns1.auth-wikipedia.org", "ttl": 3600},
-        ]
-    },
-    "youtube.net": {
-        "NS": [
-            {"value": b"ns1.auth-youtube.net", "ttl": 3600},
-        ]
-    },
-    
+    }
 }
+
 
 
 
@@ -122,17 +116,18 @@ def get_records(domain):
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
-        1: 'A',
-        28: 'AAAA',
-        5: 'CNAME',
-        15: 'MX',
-        2: 'NS',
-        12: 'PTR',
-        6: 'SOA',
-        16: 'TXT',
-        33: 'SRV',
-        255: 'ANY'
-    }
+    1: 'A',
+    28: 'AAAA',
+    5: 'CNAME',
+    15: 'MX',
+    2: 'NS',
+    12: 'PTR',
+    6: 'SOA',
+    16: 'TXT',
+    33: 'SRV',
+    255: 'ANY',
+    257: 'CAA'
+}
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
 
@@ -153,6 +148,34 @@ def get_question_domain(data):
     query_type = query_type_map.get(query_type_value, 'UNKNOWN')
 
     return domain_name, query_type
+##############################################################################################################
+def get_additional_section(domain_name):
+    """
+    Generates the additional section for the DNS response by checking A records
+    corresponding to the NS records.
+
+    Args:
+        domain (str): The domain for which additional section is to be generated.
+
+    Returns:
+        bytes: The additional section in binary format.
+    """
+    additional_section = b""
+
+    if domain_name in tld_database and "A" in tld_database[domain_name]:
+        a_records = tld_database[domain_name]["A"]  # Fetch A records
+
+        for record in a_records:
+            ip_bytes = socket.inet_aton(record["value"])  # Convert IP to binary
+            additional_section += (
+                encode_domain_name(record["name"])  # Encode the domain name
+                + b'\x00\x01'  # Type: A
+                + b'\x00\x01'  # Class: IN
+                + record["ttl"].to_bytes(4, byteorder="big")  # TTL
+                + b'\x00\x04'  # RDLENGTH: 4 bytes for IPv4
+                + ip_bytes  # RDATA: IP address in binary
+            )
+    return additional_section
 
 ############################################################################################################
 # Function to extract flags
@@ -178,7 +201,7 @@ def get_flags(Rcode):
 def get_rcode(domain_name, query_type, data):
     if not validate_query(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
         return 4  # NOTIMP
     if not get_records(domain_name):
         return 3  # NXDOMAIN
@@ -238,34 +261,24 @@ def build_response(data):
     
 
     if Rcode == '0000':
+        # DNS question section (domain name and query type)
+        question_section = data[12:]  # The Question Section in a response is an echo of the question from the request.
+        
+        # DNS body (resource records)
+        authority_section = convert_records_to_binary(records)
+        additional_section = get_additional_section(domain_name)
+        
+
         # Question Count (1 question)
         qdcount = b'\x00\x01'
 
-        # Answer Count (how many answers are being returned)
         anscount = b'\x00\x00'
-
-        # No additional authority or additional records
         authcount = len(records).to_bytes(2, byteorder='big')
-        addcount = b'\x00\x00'
+        addcount = (len(additional_section) // 16).to_bytes(2, byteorder="big")
 
         # DNS header (Transaction ID, Flags, Question Count, Answer Count, Authority Count, Additional Count)
         dns_header = transaction_id + flags + qdcount + anscount + authcount + addcount
-
-        # DNS question section (domain name and query type)
-        question_section = data[12:]  # The Question Section in a response is an echo of the question from the request.
-
-        # DNS body (resource records)
-        authority_section = convert_records_to_binary(records)
-
-        additional_section = (
-            b'\xc0\x0c'  # Pointer to domain name (compression offset 12)
-            + b'\x00\x01'  # Type: A (1)
-            + b'\x00\x01'  # Class: IN (1)
-            + (3600).to_bytes(4, byteorder='big')  # TTL: 3600 seconds
-            + b'\x00\x04'  # RDLENGTH: 4 bytes (IPv4 address length)
-            + b'\x7f\x00\x00\x01'  # RDATA: 127.0.0.1 in bytes
-        )
-        
+ 
         response = dns_header + question_section + authority_section + additional_section
 
         return response
