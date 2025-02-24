@@ -1,6 +1,6 @@
-## DNS Server System
+# DNS Server System
 
-# Overview
+## Overview
 
 The DNS Server System is an implementation of a hierarchical Domain Name System (DNS) architecture consisting of:
 
@@ -14,7 +14,7 @@ An Authoritative Server
 
 This project follows the iterative DNS query resolution process and adheres to RFC 1034, RFC 1035, and RFC 2181 standards. It is implemented using Python and communicates via the User Datagram Protocol (UDP).
 
-# Features
+## Features
 
 Iterative Query Resolution: The resolver queries the hierarchy (Root, TLD, and Authoritative servers) to resolve domain names.
 
@@ -26,7 +26,7 @@ Multi-threaded Design: Each server operates concurrently for efficient request h
 
 Logging and Debugging: Tracks query processing and errors for easy debugging.
 
-# System Architecture
+## System Architecture
 
 Client Query → Sent to DNS Resolver
 
@@ -38,15 +38,15 @@ Resolver to Authoritative Server → Retrieves final answer
 
 Response sent back to client
 
-# Installation & Setup
+## Installation & Setup
 
-Prerequisites:
+### Prerequisites:
 
 Python (Ensure Python 3.x is installed)
 
 Required modules: socket, threading, logging, ipaddress
 
-Installation Steps:
+### Installation Steps:
 
 Clone this repository:
 
@@ -60,7 +60,7 @@ python root_server.py
 python tld_server.py
 python authoritative_server.py
 
-# Configuration
+## Configuration
 
 The servers are set to run on localhost (127.0.0.1) by default.
 
@@ -70,21 +70,21 @@ Use 0.0.0.0 (all interfaces) or a specific LAN IP (e.g., 192.168.x.x).
 
 Modify database entries in each server file to add/remove domain records.
 
-# Usage
+## Usage
 
 Sending DNS Queries
 
 You can use nslookup or dig to test queries:
 
-Using nslookup:
+### Using nslookup:
 
 nslookup example.com 127.0.0.1
 
-Using dig:
+### Using dig:
 
 dig example.com @127.0.0.1
 
-Example Queries
+### Example Queries
 
 A Record:
 
@@ -98,7 +98,7 @@ MX Record:
 
 nslookup -type=MX example.org 127.0.0.1
 
-# Testing
+## Testing
 
 The system has been tested for:
 
@@ -110,7 +110,7 @@ Unsupported query types returning NOTIMP
 
 Large query loads handled via threading
 
-#References
+## References
 
 RFC 1034 - DNS Concepts and Facilities
 
