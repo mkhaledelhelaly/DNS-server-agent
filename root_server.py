@@ -127,6 +127,7 @@ def get_tld(domain_name):
 # Function to parse the domain name from the DNS query
 def get_question_domain(data):
     domain_parts = []
+
     query_type_map = {
     1: 'A',
     28: 'AAAA',
@@ -138,7 +139,13 @@ def get_question_domain(data):
     16: 'TXT',
     33: 'SRV',
     255: 'ANY',
-    257: 'CAA'
+    257: 'CAA',
+    8: 'MG',
+    9: 'MR', 
+    13: 'HINFO',  
+    7: 'MAILB', 
+    14: 'MINFO',  
+    10: 'NULL' 
 }
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
@@ -184,7 +191,7 @@ def get_flags(Rcode):
 def get_rcode(tld, query_type, data):
     if not validate_query_format(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS', 'AAAA', 'PTR', 'TXT', 'SOA', 'SRV', 'CAA', 'MG', 'MR', 'HINFO', 'MAILB', 'MINFO', 'NULL']:
         return 4  # NOTIMP
     if not get_records(tld):
         return 3  # NXDOMAIN

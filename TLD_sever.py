@@ -87,7 +87,7 @@ def convert_records_to_binary(records):
 
     return bytes(binary_records)  # Return the concatenated binary string
 #################################################################################################################################
-# Reuse shared helper functions from the root server
+
 def get_records(domain):
     if domain in tld_database:
         # Retrieve NS records for the given domain
@@ -112,7 +112,7 @@ def get_records(domain):
         return []
 
 ##############################################################################################################################################
-# Function to parse the domain name from the DNS query
+
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
@@ -126,7 +126,13 @@ def get_question_domain(data):
     16: 'TXT',
     33: 'SRV',
     255: 'ANY',
-    257: 'CAA'
+    257: 'CAA',
+    8: 'MG',
+    9: 'MR', 
+    13: 'HINFO',  
+    7: 'MAILB', 
+    14: 'MINFO',  
+    10: 'NULL' 
 }
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
@@ -150,16 +156,7 @@ def get_question_domain(data):
     return domain_name, query_type
 ##############################################################################################################
 def get_additional_section(domain_name):
-    """
-    Generates the additional section for the DNS response by checking A records
-    corresponding to the NS records.
 
-    Args:
-        domain (str): The domain for which additional section is to be generated.
-
-    Returns:
-        bytes: The additional section in binary format.
-    """
     additional_section = b""
 
     if domain_name in tld_database and "A" in tld_database[domain_name]:
@@ -178,7 +175,7 @@ def get_additional_section(domain_name):
     return additional_section
 
 ############################################################################################################
-# Function to extract flags
+
 def get_flags(Rcode):
     QR = '1'
     opcode = '0000'
@@ -199,9 +196,9 @@ def get_flags(Rcode):
 
 ######################################################################################################################
 def get_rcode(domain_name, query_type, data):
-    if not validate_query(data):
+    if not validate_query_format(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS', 'AAAA', 'PTR', 'TXT', 'SOA', 'SRV', 'CAA', 'MG', 'MR', 'HINFO', 'MAILB', 'MINFO', 'NULL']:
         return 4  # NOTIMP
     if not get_records(domain_name):
         return 3  # NXDOMAIN
@@ -211,8 +208,8 @@ def get_rcode(domain_name, query_type, data):
     # 5 -> policy restriction
 
 #######################################################################################################################
-# Validate and sanitize incoming DNS queries
-def validate_query(data):
+
+def validate_query_format(data):
     # Ensure the query is not too short
     if len(data) < 12:
         logging.warning("Query too short, possible attack detected.")

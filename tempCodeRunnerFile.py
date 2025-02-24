@@ -1,1 +1,0 @@
-auth_response, _ = sock.recvfrom(512)

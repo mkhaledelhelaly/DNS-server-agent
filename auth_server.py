@@ -1,6 +1,7 @@
 import socket
 import logging
 import threading
+import ipaddress
 
 auth_ip = '127.0.0.1'
 auth_port = 5357
@@ -63,7 +64,35 @@ auth_database = {
         "CNAME": [
             {"alias": "www.example.com", "value": "example.com", "ttl": 3600},  # CNAME for www.example.com
         ],
+         "MG": [
+        {"value": "mailgroup.example.com", "ttl": 3600}  # Mail group for example.com
+        ],
+        "MR": [
+            {"value": "mailredirect.example.com", "ttl": 3600}  # Mailbox rename or redirection
+        ],
+        
+        "HINFO": [
+            {"hardware": "Intel x86", "os": "Linux", "ttl": 3600}  # Host information for example.com
+        ],
+
+        "MAILB": [
+            {"value": "mailbox.example.com", "ttl": 3600}  # Mailbox information for example.com
+        ],
+
+        "MINFO": [
+            {
+                "rmailbx": "admin-mailbox.example.com",
+                "emailbx": "error-mailbox.example.com",
+                "ttl": 3600
+            }  # Mailbox or mail list information
+        ],
+
+        "NULL": [
+            {"value": "", "ttl": 3600}  # Placeholder NULL record
+        ]
+
     },
+
 
      "example.org": {
         "A": [
@@ -118,7 +147,7 @@ auth_database = {
         ],
         "CNAME": [
             {"alias": "www.example.org", "value": "example.org", "ttl": 3600},  # CNAME for www.example.org
-        ],
+        ]
     },
 
     "example.net": {
@@ -174,15 +203,15 @@ auth_database = {
         ],
         "CNAME": [
             {"alias": "www.example.net", "value": "example.net", "ttl": 3600},  # CNAME for www.example.net
-        ],
-    },
+        ]
+    }
 }
 
 #############################################################################################################################################################
 
 ###########################################################################################################################################
 
-# Function to retrieve DNS record from the database
+
 def get_records(domain_name, record_type):
     if domain_name in auth_database and record_type in auth_database[domain_name]:
         return auth_database[domain_name][record_type]
@@ -190,7 +219,7 @@ def get_records(domain_name, record_type):
 
 #######################################################################################################################################################3
 
-# Function to build the DNS response body (resource records)
+
 def build_records(domain_name, record_type, records):
     response_body = b""
 
@@ -218,7 +247,6 @@ def build_records(domain_name, record_type, records):
             response_body += b'\x00\x10'  # Length of the address (16 bytes for type AAAA)
 
             # Convert the IPv6 address into 16 bytes
-            import ipaddress
             ipv6_bytes = ipaddress.IPv6Address(value).packed
             response_body += ipv6_bytes
 
@@ -393,10 +421,69 @@ def build_records(domain_name, record_type, records):
             response_body += flags.to_bytes(1, byteorder='big')  # Flags
             response_body += tag_bytes  # Tag field
             response_body += value  # Value field
+
+        elif record_type == 'MG':  # Mail Group Record
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x08'  # Type: MG
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            response_body += len(value).to_bytes(2, byteorder='big')
+            response_body += value.encode()  # Encode the mail group name as bytes
+
+        elif record_type == 'MR':  # Mail Rename Record
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x09'  # Type: MR
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            response_body += len(value).to_bytes(2, byteorder='big')
+            response_body += value.encode()  # Encode the mailbox name as bytes
+
+        elif record_type == 'HINFO':  # Host Information Record
+            hardware = record['hardware']
+            os = record['os']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x0d'  # Type: HINFO
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            data = hardware.encode() + b'\x00' + os.encode()  # Concatenate hardware and OS with null separation
+            response_body += len(data).to_bytes(2, byteorder='big')
+            response_body += data
+
+        elif record_type == 'MAILB':  # Mailbox Information Record
+            value = record['value']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x0e'  # Type: MAILB (non-standard, mapped as custom type here)
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            response_body += len(value).to_bytes(2, byteorder='big')
+            response_body += value.encode()  # Encode mailbox info
+
+        elif record_type == 'MINFO':  # Mailbox or Mail List Information Record
+            rmailbx = record['rmailbx']
+            emailbx = record['emailbx']
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x0f'  # Type: MINFO
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            data = rmailbx.encode() + b'\x00' + emailbx.encode()  # Concatenate responsible and error mailbox
+            response_body += len(data).to_bytes(2, byteorder='big')
+            response_body += data
+
+        elif record_type == 'NULL':  # Placeholder NULL Record
+            value = record.get('value', '')
+            response_body += b'\xc0\x0c'
+            response_body += b'\x00\x10'  # Type: NULL
+            response_body += b'\x00\x01'  # Class: IN
+            response_body += int(ttl).to_bytes(4, byteorder='big')
+            response_body += len(value).to_bytes(2, byteorder='big')
+            response_body += value.encode()  # Encode as a raw binary string
+
+
     return response_body
     
 ####################################################################################################################################################3
-# Function to parse the domain name from the DNS query
 def get_question_domain(data):
     domain_parts = []
     query_type_map = {
@@ -410,7 +497,13 @@ def get_question_domain(data):
     16: 'TXT',
     33: 'SRV',
     255: 'ANY',
-    257: 'CAA'
+    257: 'CAA',
+    8: 'MG',
+    9: 'MR', 
+    13: 'HINFO',  
+    7: 'MAILB', 
+    14: 'MINFO',  
+    10: 'NULL' 
 }
 
     idx = 12  # index starts at 12 because the first 12 bytes are reserved for the header
@@ -434,7 +527,6 @@ def get_question_domain(data):
     return domain_name, query_type
 ####################################################################################################################################################
 
-# Function to extract flags
 def get_flags(Rcode):
     QR = '1'
     opcode = '0000'
@@ -443,8 +535,6 @@ def get_flags(Rcode):
     RD = '0'
     RA = '0'
     Z = '000'
-    # Rcode = f"{get_rcode(domainname, query_type):04b}"
-    # print(f"Rcode (binary) = {Rcode}")
 
     # Concatenate all the parts into a single binary string
     flags = QR + opcode + AA + TC + RD + RA + Z + str(Rcode)
@@ -457,7 +547,7 @@ def get_flags(Rcode):
 def get_rcode(domain_name, query_type, data):
     if not validate_query_format(data):
         return 1  # FORMERR
-    if query_type not in ['A', 'CNAME', 'MX', 'NS','AAAA','PTR', 'TXT', 'SOA', 'SRV','CAA']:
+    if query_type not in ['A', 'CNAME', 'MX', 'NS', 'AAAA', 'PTR', 'TXT', 'SOA', 'SRV', 'CAA', 'MG', 'MR', 'HINFO', 'MAILB', 'MINFO', 'NULL']:
         return 4  # NOTIMP
     if domain_name not in auth_database:
         return 3  # NXDOMAIN
@@ -467,7 +557,6 @@ def get_rcode(domain_name, query_type, data):
     # 5 -> policy restriction
 ##############################################################################################################################
 
-# Validate and sanitize incoming DNS queries
 def validate_query_format(data):
     # Ensure the query is not too short
     if len(data) < 12:
@@ -489,6 +578,7 @@ def validate_query_format(data):
 ###################################################################################################################
 
 def build_error_response(data, rcode):
+    print("This is the error response\n")
     transaction_id = data[:2]  # Echo Transaction ID
     flags = get_flags(rcode)
     qdcount = b'\x00\x01'  # 1 question
@@ -504,6 +594,7 @@ def build_response(data):
     # Extract domain name and query type from the question section
     domain_name, query_type = get_question_domain(data)
     print(f"Domain Name = {domain_name}")
+    print(f"Query type = {query_type}")
 
     records = get_records(domain_name,query_type, )
     print(f"records = {records}")
